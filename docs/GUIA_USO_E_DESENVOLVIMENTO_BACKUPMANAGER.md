@@ -1,4 +1,4 @@
-# Guia de Uso e Desenvolvimento — BackupManager
+# Guia de Uso e Desenvolvimento - BackupManager
 
 ## Como Executar
 
@@ -8,7 +8,7 @@ Na pasta do projeto:
 python -m backupmanager.main
 ```
 
-A interface usa `customtkinter`. Se necessário:
+A interface usa `tkinter` com aparencia em `customtkinter`. Se necessario:
 
 ```bash
 pip install customtkinter
@@ -20,13 +20,29 @@ pip install customtkinter
 python -m unittest discover -s tests
 ```
 
-Para verificar sintaxe:
+Para verificar sintaxe dos modulos:
 
 ```bash
 python -m compileall backupmanager
 ```
 
-## Uso Básico da Interface
+## Persistencia
+
+O sistema usa JSON apenas na inicializacao e no encerramento:
+
+```text
+JSON -> leitura inicial -> ESTADO em memoria -> alteracoes em memoria -> escrita final no encerramento
+```
+
+Durante o uso normal, criar perfil, editar perfil, executar backup e registrar historico nao salvam JSON imediatamente.
+
+O salvamento ocorre em:
+
+```python
+controller.finalizar_aplicacao()
+```
+
+## Uso Basico da Interface
 
 ### Criar Perfil
 
@@ -34,105 +50,63 @@ Digite um nome e clique em `Criar perfil`.
 
 ### Selecionar Perfil
 
-Clique em um perfil na lista. Os dados aparecem no formulário.
+Clique em um perfil na lista. Os dados aparecem no formulario.
 
 ### Editar Perfil
 
-Altere nome, ativo/inativo, origens, destinos, operação, restrições ou agendamento e clique em `Aplicar alteracoes`.
+Altere nome, estado ativo/inativo, origens, destinos, operacao, restricoes ou agendamento e clique em `Aplicar alteracoes`.
 
-Esse botão altera apenas o estado em memória.
+As extensoes permitidas sao escolhidas em uma lista de checkboxes. Para usar uma extensao que nao aparece na lista, digite a extensao no campo lateral e clique em `Adicionar`.
+
+Extensoes adicionadas ficam em memoria durante a execucao e sao salvas em `config.json` ao encerrar a aplicacao.
 
 ### Adicionar Origem ou Destino
 
 Use `Adicionar origem` ou `Adicionar destino`, escolha uma pasta e depois clique em `Aplicar alteracoes`.
 
+### Visualizar Arquivos
+
+Selecione um perfil e clique em `Visualizar arquivos`.
+
+A janela mostra os arquivos encontrados nas origens, suas informacoes e se cada arquivo esta `INCLUIDO` ou `IGNORADO` pelas restricoes.
+
 ### Executar Backup
 
 Selecione um perfil e clique em `Executar backup`.
 
-### Ver Histórico
+O backup copia ou move arquivos para todos os destinos configurados.
+
+No modo `mover`, o arquivo e copiado para todos os destinos antes de ser removido da origem.
+
+### Ver Historico
 
 Selecione um perfil e clique em `Historico`.
 
+A janela mostra data, status, arquivos processados, copiados, movidos e erros.
+
 ### Sair
 
-Ao clicar em `Sair` ou fechar a janela, a aplicação chama `controller.finalizar_aplicacao()`.
+Ao clicar em `Sair` ou fechar a janela, a aplicacao chama `controller.finalizar_aplicacao()`.
 
-Se houver alterações, os JSONs são reescritos nesse momento.
+Se houver alteracoes em memoria, os JSONs sao reescritos nesse momento.
 
-## Próximos Módulos a Fazer
+## Modulos Principais
 
-### `file_utils.py`
+- `controller.py`: coordena o estado em memoria e os outros modulos.
+- `perfil_manager.py`: cria, consulta e altera perfis.
+- `file_utils.py`: lista arquivos, le metadados e aplica filtros.
+- `backup_engine.py`: executa copia, movimentacao e backup para multiplos destinos.
+- `history_manager.py`: cria, consulta, limpa e resume historico.
+- `scheduler.py`: decide execucao automatica por intervalo ou alteracao.
+- `storage.py`: le e escreve JSON.
+- `interface.py`: interface grafica com `tkinter` e `customtkinter`.
 
-É o próximo módulo mais importante.
+## Regras de Desenvolvimento
 
-Espera-se implementar:
-
-- verificar existência de caminhos;
-- verificar diretórios;
-- listar arquivos;
-- obter nome, extensão, tamanho e data de modificação;
-- filtrar por extensão;
-- filtrar por nome;
-- filtrar por tamanho;
-- filtrar por data;
-- testar com `tempfile`.
-
-### `backup_engine.py`
-
-Depende de `file_utils.py`.
-
-Espera-se implementar:
-
-- backup real de arquivos;
-- cópia;
-- movimentação;
-- múltiplos destinos;
-- criação de pasta destino;
-- tratamento de erro por arquivo;
-- resultado com contadores e erros.
-
-### `controller.py`
-
-Espera-se reforçar:
-
-- validação de perfil ativo;
-- validação de origem/destino;
-- bloqueio de backup sem origem ou destino;
-- funções para limpar histórico;
-- mais testes de erro.
-
-### `history_manager.py`
-
-Espera-se melhorar:
-
-- testes de limpeza de histórico;
-- padronização de status;
-- garantia de que erros sempre sejam lista.
-
-### `scheduler.py`
-
-Espera-se implementar:
-
-- execução por intervalo;
-- detecção simples de alteração;
-- monitoramento com `threading`;
-- callback para o controller;
-- respeito a perfil ativo/inativo.
-
-### `interface.py`
-
-Espera-se refinar:
-
-- tela ou janela de histórico;
-- campos de data de modificação;
-- mensagens de validação mais claras;
-- feedback visual após backup.
-
-### `storage.py`
-
-Espera-se reforçar:
-
-- tratamento de erro ao salvar;
-- tratamento de permissão;
-- criação de arquivos padrão quando necessário.
+- Nao usar classes na logica principal.
+- Nao usar dataclasses.
+- Representar entidades como dicionarios.
+- Manter funcoes separadas por modulo.
+- Usar codigos de retorno de `return_codes.py`.
+- Atualizar ou criar testes com `unittest`.
+- Rodar testes e `compileall` antes de concluir alteracoes.

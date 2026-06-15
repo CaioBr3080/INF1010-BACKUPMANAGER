@@ -8,7 +8,11 @@ Projeto em Python para gerenciar perfis de backup de arquivos, com suporte a cop
 - Configuracao de pastas de origem e destino.
 - Operacoes de copiar ou mover arquivos.
 - Filtros por nome, extensao, tamanho e data de modificacao.
+- Visualizacao dos arquivos encontrados nas origens, indicando incluidos e ignorados.
+- Backup real para multiplos destinos.
+- Movimentacao segura copiando para os destinos antes de remover a origem.
 - Historico das execucoes.
+- Agendamento simples por intervalo ou alteracao de arquivos.
 - Persistencia em JSON com leitura inicial e escrita final.
 - Testes automatizados com `unittest`.
 - Interface principal com `tkinter` e `customtkinter`.
@@ -60,3 +64,5 @@ preview_interface.py  Prototipo visual da interface
 ## Observacao
 
 Os arquivos JSON dentro de `data/` sao dados locais de uso da aplicacao e nao sao versionados.
+
+Durante a execucao, perfis, historico e configuracoes ficam em memoria. Os arquivos JSON sao reescritos somente ao encerrar a aplicacao com `controller.finalizar_aplicacao()`.
