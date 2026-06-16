@@ -11,6 +11,15 @@ class TestHistoryManager(unittest.TestCase):
             "arquivos_processados": 2,
             "arquivos_copiados": 4,
             "arquivos_movidos": 0,
+            "arquivos_recortados": 1,
+            "arquivos": [
+                {
+                    "nome": "relatorio.pdf",
+                    "tipo": "PDFs",
+                    "tamanho": 12,
+                    "operacao": "recortar",
+                }
+            ],
             "erros": None,
         }
 
@@ -18,6 +27,10 @@ class TestHistoryManager(unittest.TestCase):
 
         self.assertEqual(registro["perfil_id"], "perfil_001")
         self.assertEqual(registro["status"], "sucesso")
+        self.assertEqual(registro["arquivos_recortados"], 1)
+        self.assertEqual(registro["arquivos"][0]["nome"], "relatorio.pdf")
+        self.assertEqual(registro["arquivos"][0]["tipo"], "PDFs")
+        self.assertEqual(registro["arquivos"][0]["tamanho"], 12)
         self.assertEqual(registro["erros"], [])
 
     def test_criar_registro_historico_converte_status_desconhecido_para_erro(self):

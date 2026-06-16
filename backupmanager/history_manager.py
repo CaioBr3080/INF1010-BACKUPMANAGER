@@ -21,6 +21,8 @@ def criar_registro_historico(perfil_id, resultado):
         "arquivos_processados": resultado.get("arquivos_processados", 0),
         "arquivos_copiados": resultado.get("arquivos_copiados", 0),
         "arquivos_movidos": resultado.get("arquivos_movidos", 0),
+        "arquivos_recortados": resultado.get("arquivos_recortados", 0),
+        "arquivos": normalizar_arquivos(resultado.get("arquivos", [])),
         "erros": normalizar_erros(resultado.get("erros", [])),
     }
 
@@ -39,6 +41,18 @@ def normalizar_erros(erros):
     if isinstance(erros, list):
         return erros
     return [erros]
+
+
+def normalizar_arquivos(arquivos):
+    """Garante lista de detalhes de arquivos processados."""
+    if not isinstance(arquivos, list):
+        return []
+
+    normalizados = []
+    for arquivo in arquivos:
+        if isinstance(arquivo, dict):
+            normalizados.append(arquivo)
+    return normalizados
 
 
 def registrar_backup(historico, perfil_id, resultado):

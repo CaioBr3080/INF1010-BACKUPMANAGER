@@ -16,6 +16,8 @@ from backupmanager.return_codes import (
     ERRO_ORIGEM_INVALIDA,
 )
 
+OPERACOES_VALIDAS = ("copiar", "mover", "recortar")
+
 
 def montar_resultado_backup(perfil_id):
     """Cria o dicionario base de resultado de backup."""
@@ -25,6 +27,8 @@ def montar_resultado_backup(perfil_id):
         "arquivos_processados": 0,
         "arquivos_copiados": 0,
         "arquivos_movidos": 0,
+        "arquivos_recortados": 0,
+        "arquivos": [],
         "erros": [],
     }
 
@@ -34,6 +38,9 @@ def validar_perfil_para_backup(perfil):
     if not isinstance(perfil, dict):
         return ERRO_DADOS_INVALIDOS
 
+    if perfil_usa_fluxo_configurado(perfil):
+        return validar_perfil_configurado_para_backup(perfil)
+
     origens = perfil.get("origens", [])
     destinos = perfil.get("destinos", [])
     operacao = perfil.get("operacao", "copiar")
@@ -42,7 +49,66 @@ def validar_perfil_para_backup(perfil):
         return ERRO_ORIGEM_INVALIDA
     if not isinstance(destinos, list) or len(destinos) == 0:
         return ERRO_DESTINO_INVALIDO
-    if operacao not in ("copiar", "mover"):
+    if operacao not in OPERACOES_VALIDAS:
+        return ERRO_OPERACAO_INVALIDA
+
+    return OK
+
+
+def perfil_usa_fluxo_configurado(perfil):
+    """Indica se o perfil usa origem -> tipo -> destino."""
+    return isinstance(perfil, dict) and isinstance(perfil.get("origens_configuradas"), list) and len(perfil.get("origens_configuradas")) > 0
+
+
+def validar_perfil_configurado_para_backup(perfil):
+    """Valida o modelo origem -> tipo -> destino."""
+    origens = perfil.get("origens_configuradas", [])
+    if not isinstance(origens, list) or not origens:
+        return ERRO_ORIGEM_INVALIDA
+
+    possui_destino = False
+    for origem in origens:
+        if not isinstance(origem, dict):
+            return ERRO_ORIGEM_INVALIDA
+        if origem.get("ativo", True) and not origem.get("caminho"):
+            return ERRO_ORIGEM_INVALIDA
+        tipos = origem.get("tipos_arquivo", [])
+        if not isinstance(tipos, list):
+            return ERRO_DADOS_INVALIDOS
+        for tipo in tipos:
+            if not isinstance(tipo, dict):
+                return ERRO_DADOS_INVALIDOS
+            destinos = tipo.get("destinos", [])
+            if not isinstance(destinos, list):
+                return ERRO_DESTINO_INVALIDO
+            if destinos:
+                possui_destino = True
+            if not origem.get("ativo", True) or not tipo.get("ativo", True):
+                continue
+            codigo = validar_destinos_do_tipo(tipo)
+            if codigo != OK:
+                return codigo
+
+    if not possui_destino:
+        return ERRO_DESTINO_INVALIDO
+    return OK
+
+
+def validar_destinos_do_tipo(tipo):
+    """Valida destinos e conflito de operacoes de um tipo."""
+    destinos = tipo.get("destinos", [])
+    operacoes_remocao = []
+
+    for destino in destinos:
+        if not isinstance(destino, dict) or not destino.get("caminho"):
+            return ERRO_DESTINO_INVALIDO
+        operacao = destino.get("operacao", "copiar")
+        if operacao not in OPERACOES_VALIDAS:
+            return ERRO_OPERACAO_INVALIDA
+        if operacao in ("mover", "recortar"):
+            operacoes_remocao.append(destino)
+
+    if operacoes_remocao and len(destinos) > 1:
         return ERRO_OPERACAO_INVALIDA
 
     return OK
@@ -58,6 +124,9 @@ def executar_backup(perfil):
         resultado["status"] = "erro"
         resultado["erros"].append("Perfil invalido para backup.")
         return codigo_validacao, resultado
+
+    if perfil_usa_fluxo_configurado(perfil):
+        return executar_backup_configurado(perfil)
 
     caminhos = file_utils.listar_arquivos_de_origens(perfil.get("origens", []))
     restricoes = perfil.get("restricoes", {})
@@ -75,6 +144,77 @@ def executar_backup(perfil):
         return ERRO_BACKUP_SEM_ARQUIVOS, resultado
 
     return executar_backup_multiplos_destinos(perfil, arquivos_validos)
+
+
+def executar_backup_configurado(perfil):
+    """Executa backup no modelo origem -> tipo -> destino."""
+    resultado = montar_resultado_backup(perfil.get("id"))
+    primeiro_erro = OK
+
+    for origem in perfil.get("origens_configuradas", []):
+        if not origem.get("ativo", True):
+            continue
+        codigo = executar_backup_da_origem_configurada(origem, resultado)
+        if primeiro_erro == OK and codigo != OK:
+            primeiro_erro = codigo
+
+    if resultado["arquivos_processados"] == 0 and not resultado["erros"]:
+        resultado["status"] = "sem_arquivos"
+        return ERRO_BACKUP_SEM_ARQUIVOS, resultado
+    if not resultado["erros"]:
+        resultado["status"] = "sucesso"
+        return OK, resultado
+    if resultado["arquivos_processados"] > 0:
+        resultado["status"] = "parcial"
+        return primeiro_erro, resultado
+
+    resultado["status"] = "erro"
+    return primeiro_erro, resultado
+
+
+def executar_backup_da_origem_configurada(origem, resultado):
+    """Executa todos os tipos de uma origem configurada."""
+    caminhos = file_utils.listar_arquivos_em_origem(origem.get("caminho"))
+    primeiro_erro = OK
+
+    for tipo in origem.get("tipos_arquivo", []):
+        if not tipo.get("ativo", True):
+            continue
+        arquivos_validos = filtrar_arquivos_por_tipo(caminhos, tipo)
+        for arquivo in arquivos_validos:
+            resultado_arquivo = processar_arquivo_para_destinos_configurados(arquivo, tipo.get("destinos", []), tipo)
+            aplicar_resultado_arquivo(resultado, resultado_arquivo)
+            if primeiro_erro == OK and resultado_arquivo.get("codigo") != OK:
+                primeiro_erro = resultado_arquivo.get("codigo")
+
+    return primeiro_erro
+
+
+def filtrar_arquivos_por_tipo(caminhos, tipo):
+    """Filtra arquivos de uma origem para um tipo."""
+    arquivos = []
+    restricoes = tipo.get("restricoes", {})
+    for caminho in caminhos:
+        arquivo = file_utils.obter_metadados_arquivo(caminho)
+        if arquivo is None:
+            continue
+        if file_utils.arquivo_atende_restricoes(arquivo, restricoes):
+            arquivo["tipo_id"] = tipo.get("id")
+            arquivo["tipo_nome"] = tipo.get("nome", "")
+            arquivos.append(arquivo)
+    return arquivos
+
+
+def aplicar_resultado_arquivo(resultado, resultado_arquivo):
+    """Acumula resultado de um arquivo no resultado geral."""
+    if resultado_arquivo.get("processado"):
+        resultado["arquivos_processados"] += 1
+    resultado["arquivos_copiados"] += resultado_arquivo.get("arquivos_copiados", 0)
+    resultado["arquivos_movidos"] += resultado_arquivo.get("arquivos_movidos", 0)
+    resultado["arquivos_recortados"] += resultado_arquivo.get("arquivos_recortados", 0)
+    resultado["arquivos"].extend(resultado_arquivo.get("arquivos", []))
+    resultado["erros"].extend(resultado_arquivo.get("erros", []))
+    return resultado
 
 
 def executar_backup_multiplos_destinos(perfil, arquivos_validos):
@@ -95,6 +235,8 @@ def executar_backup_multiplos_destinos(perfil, arquivos_validos):
             resultado["arquivos_processados"] += 1
         resultado["arquivos_copiados"] += resultado_arquivo.get("arquivos_copiados", 0)
         resultado["arquivos_movidos"] += resultado_arquivo.get("arquivos_movidos", 0)
+        resultado["arquivos_recortados"] += resultado_arquivo.get("arquivos_recortados", 0)
+        resultado["arquivos"].extend(resultado_arquivo.get("arquivos", []))
         resultado["erros"].extend(resultado_arquivo.get("erros", []))
         if primeiro_erro == OK and resultado_arquivo.get("codigo") != OK:
             primeiro_erro = resultado_arquivo.get("codigo")
@@ -117,6 +259,8 @@ def processar_arquivo_para_destinos(arquivo, destinos, operacao):
         "processado": False,
         "arquivos_copiados": 0,
         "arquivos_movidos": 0,
+        "arquivos_recortados": 0,
+        "arquivos": [],
         "erros": [],
     }
 
@@ -135,9 +279,52 @@ def processar_arquivo_para_destinos(arquivo, destinos, operacao):
         return processar_copia_para_destinos(arquivo, destinos, resultado)
     if operacao == "mover":
         return processar_movimento_para_destinos(arquivo, destinos, resultado)
+    if operacao == "recortar":
+        return processar_recorte_para_destinos(arquivo, destinos, resultado)
 
     resultado["codigo"] = ERRO_OPERACAO_INVALIDA
     resultado["erros"].append("Operacao invalida.")
+    return resultado
+
+
+def processar_arquivo_para_destinos_configurados(arquivo, destinos, tipo):
+    """Processa arquivo usando destinos com operacao individual."""
+    codigo = validar_destinos_do_tipo({"destinos": destinos})
+    if codigo != OK:
+        return {
+            "codigo": codigo,
+            "processado": False,
+            "arquivos_copiados": 0,
+            "arquivos_movidos": 0,
+            "arquivos_recortados": 0,
+            "arquivos": [],
+            "erros": [montar_erro_arquivo(arquivo, tipo.get("nome", ""), codigo)],
+        }
+
+    resultado = {
+        "codigo": OK,
+        "processado": False,
+        "arquivos_copiados": 0,
+        "arquivos_movidos": 0,
+        "arquivos_recortados": 0,
+        "arquivos": [],
+        "erros": [],
+    }
+
+    for destino in destinos:
+        operacao = destino.get("operacao", "copiar")
+        caminho = destino.get("caminho")
+        resultado_operacao = processar_arquivo_para_destinos(arquivo, [caminho], operacao)
+        if resultado_operacao.get("processado"):
+            resultado["processado"] = True
+        resultado["arquivos_copiados"] += resultado_operacao.get("arquivos_copiados", 0)
+        resultado["arquivos_movidos"] += resultado_operacao.get("arquivos_movidos", 0)
+        resultado["arquivos_recortados"] += resultado_operacao.get("arquivos_recortados", 0)
+        resultado["arquivos"].extend(resultado_operacao.get("arquivos", []))
+        resultado["erros"].extend(resultado_operacao.get("erros", []))
+        if resultado["codigo"] == OK and resultado_operacao.get("codigo") != OK:
+            resultado["codigo"] = resultado_operacao.get("codigo")
+
     return resultado
 
 
@@ -149,9 +336,11 @@ def processar_copia_para_destinos(arquivo, destinos, resultado):
         if codigo == OK:
             resultado["arquivos_copiados"] += 1
             resultado["processado"] = True
+            resultado["arquivos"].append(montar_registro_arquivo(arquivo, caminho_destino, "copiar", OK))
         else:
             resultado["codigo"] = codigo
             resultado["erros"].append(montar_erro_arquivo(arquivo, destino, codigo))
+            resultado["arquivos"].append(montar_registro_arquivo(arquivo, caminho_destino, "copiar", codigo))
     return resultado
 
 
@@ -163,9 +352,11 @@ def processar_movimento_para_destinos(arquivo, destinos, resultado):
         codigo = copiar_arquivo(arquivo.get("caminho"), caminho_destino)
         if codigo == OK:
             copias_realizadas += 1
+            resultado["arquivos"].append(montar_registro_arquivo(arquivo, caminho_destino, "mover", OK))
         else:
             resultado["codigo"] = codigo
             resultado["erros"].append(montar_erro_arquivo(arquivo, destino, codigo))
+            resultado["arquivos"].append(montar_registro_arquivo(arquivo, caminho_destino, "mover", codigo))
 
     if resultado["erros"]:
         return resultado
@@ -175,12 +366,43 @@ def processar_movimento_para_destinos(arquivo, destinos, resultado):
     except (OSError, TypeError, ValueError):
         resultado["codigo"] = ERRO_FALHA_AO_MOVER
         resultado["erros"].append(montar_erro_arquivo(arquivo, "", ERRO_FALHA_AO_MOVER))
+        resultado["arquivos"].append(montar_registro_arquivo(arquivo, "", "mover", ERRO_FALHA_AO_MOVER))
         return resultado
 
     resultado["processado"] = True
     resultado["arquivos_movidos"] = 1
     resultado["arquivos_copiados"] = copias_realizadas
     return resultado
+
+
+def processar_recorte_para_destinos(arquivo, destinos, resultado):
+    """Recorta um arquivo para um destino."""
+    resultado = processar_movimento_para_destinos(arquivo, destinos, resultado)
+    for registro in resultado.get("arquivos", []):
+        if registro.get("operacao") == "mover":
+            registro["operacao"] = "recortar"
+    if resultado.get("processado"):
+        resultado["arquivos_recortados"] = resultado.get("arquivos_movidos", 0)
+        resultado["arquivos_movidos"] = 0
+    return resultado
+
+
+def montar_registro_arquivo(arquivo, destino, operacao, codigo):
+    """Monta registro detalhado de arquivo processado."""
+    if not isinstance(arquivo, dict):
+        arquivo = {}
+
+    return {
+        "nome": arquivo.get("nome", Path(arquivo.get("caminho", "")).name),
+        "extensao": arquivo.get("extensao", ""),
+        "tipo": arquivo.get("tipo_nome", ""),
+        "tamanho": arquivo.get("tamanho", 0),
+        "origem": arquivo.get("caminho", ""),
+        "destino": str(destino),
+        "operacao": operacao,
+        "status": "sucesso" if codigo == OK else "erro",
+        "codigo": codigo,
+    }
 
 
 def montar_erro_arquivo(arquivo, destino, codigo):

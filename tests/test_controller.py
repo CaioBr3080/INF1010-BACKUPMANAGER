@@ -137,6 +137,32 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
         self.assertTrue(controller.ESTADO["alterado"])
         mock_salvar.assert_not_called()
 
+    def test_salvar_perfil_editado_aplica_origens_configuradas(self):
+        codigo, perfil = controller.criar_novo_perfil("Backup Teste")
+        self.assertEqual(codigo, OK)
+        origens_configuradas = [
+            {
+                "id": "origem_001",
+                "caminho": "C:/origem",
+                "tipos_arquivo": [
+                    {
+                        "id": "tipo_pdf",
+                        "nome": "PDFs",
+                        "restricoes": {"extensoes_permitidas": [".pdf"]},
+                        "destinos": [{"caminho": "D:/backup", "operacao": "copiar"}],
+                    }
+                ],
+            }
+        ]
+
+        codigo = controller.salvar_perfil_editado({
+            "id": perfil["id"],
+            "origens_configuradas": origens_configuradas,
+        })
+
+        self.assertEqual(codigo, OK)
+        self.assertEqual(perfil["origens_configuradas"], origens_configuradas)
+
     def test_salvar_perfil_editado_rejeita_dados_invalidos(self):
         codigo, perfil = controller.criar_novo_perfil("Backup Teste")
         self.assertEqual(codigo, OK)
@@ -227,6 +253,41 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
 
         self.assertNotEqual(codigo, OK)
         self.assertIsNone(arquivos)
+
+    def test_obter_arquivos_do_perfil_configurado_lista_tipos_incluidos(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            arquivo_pdf = Path(pasta) / "relatorio.pdf"
+            arquivo_txt = Path(pasta) / "nota.txt"
+            arquivo_pdf.write_text("pdf", encoding="utf-8")
+            arquivo_txt.write_text("txt", encoding="utf-8")
+            codigo, perfil = controller.criar_novo_perfil("Backup Teste")
+            self.assertEqual(codigo, OK)
+            codigo = controller.salvar_perfil_editado({
+                "id": perfil["id"],
+                "origens_configuradas": [
+                    {
+                        "id": "origem_001",
+                        "caminho": pasta,
+                        "tipos_arquivo": [
+                            {
+                                "id": "tipo_pdf",
+                                "nome": "PDFs",
+                                "restricoes": {"extensoes_permitidas": [".pdf"]},
+                                "destinos": [{"caminho": "D:/backup", "operacao": "copiar"}],
+                            }
+                        ],
+                    }
+                ],
+            })
+            self.assertEqual(codigo, OK)
+
+            codigo, arquivos = controller.obter_arquivos_do_perfil(perfil["id"])
+
+            self.assertEqual(codigo, OK)
+            arquivos_por_nome = {arquivo["nome"]: arquivo for arquivo in arquivos}
+            self.assertTrue(arquivos_por_nome["relatorio.pdf"]["incluido"])
+            self.assertEqual(arquivos_por_nome["relatorio.pdf"]["tipos_incluidos"], ["PDFs"])
+            self.assertFalse(arquivos_por_nome["nota.txt"]["incluido"])
 
     def test_executar_backup_bloqueia_perfil_inativo_sem_registrar_historico(self):
         codigo, perfil = controller.criar_novo_perfil("Backup Teste")

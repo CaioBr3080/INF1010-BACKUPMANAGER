@@ -139,10 +139,13 @@ def salvar_perfil_editado(perfil):
     if "destinos" in perfil and not isinstance(perfil["destinos"], list):
         return ERRO_DADOS_INVALIDOS
 
-    if "operacao" in perfil and perfil["operacao"] not in ("copiar", "mover"):
+    if "operacao" in perfil and perfil["operacao"] not in ("copiar", "mover", "recortar"):
         return ERRO_OPERACAO_INVALIDA
 
     if "restricoes" in perfil and not isinstance(perfil["restricoes"], dict):
+        return ERRO_DADOS_INVALIDOS
+
+    if "origens_configuradas" in perfil and not isinstance(perfil["origens_configuradas"], list):
         return ERRO_DADOS_INVALIDOS
 
     if "agendamento" in perfil and not isinstance(perfil["agendamento"], dict):
@@ -175,6 +178,9 @@ def salvar_perfil_editado(perfil):
 
     if "restricoes" in perfil:
         perfil_atual["restricoes"] = perfil["restricoes"]
+
+    if "origens_configuradas" in perfil:
+        perfil_atual["origens_configuradas"] = perfil["origens_configuradas"]
 
     if "agendamento" in perfil:
         perfil_atual["agendamento"] = perfil["agendamento"]
@@ -296,6 +302,9 @@ def obter_arquivos_do_perfil(perfil_id):
     if codigo != OK:
         return codigo, None
 
+    if backup_engine.perfil_usa_fluxo_configurado(perfil):
+        return obter_arquivos_do_perfil_configurado(perfil)
+
     caminhos = file_utils.listar_arquivos_de_origens(perfil.get("origens", []))
     restricoes = perfil.get("restricoes", {})
     arquivos = []
@@ -306,6 +315,31 @@ def obter_arquivos_do_perfil(perfil_id):
             continue
         arquivo["incluido"] = file_utils.arquivo_atende_restricoes(arquivo, restricoes)
         arquivos.append(arquivo)
+
+    return OK, arquivos
+
+
+def obter_arquivos_do_perfil_configurado(perfil):
+    """Lista arquivos por origem e tipo no novo modelo."""
+    arquivos = []
+
+    for origem in perfil.get("origens_configuradas", []):
+        if not origem.get("ativo", True):
+            continue
+        caminhos = file_utils.listar_arquivos_em_origem(origem.get("caminho"))
+        for caminho in caminhos:
+            arquivo = file_utils.obter_metadados_arquivo(caminho)
+            if arquivo is None:
+                continue
+            arquivo["origem"] = origem.get("caminho")
+            arquivo["tipos_incluidos"] = []
+            for tipo in origem.get("tipos_arquivo", []):
+                if not tipo.get("ativo", True):
+                    continue
+                if file_utils.arquivo_atende_restricoes(arquivo, tipo.get("restricoes", {})):
+                    arquivo["tipos_incluidos"].append(tipo.get("nome", ""))
+            arquivo["incluido"] = bool(arquivo["tipos_incluidos"])
+            arquivos.append(arquivo)
 
     return OK, arquivos
 

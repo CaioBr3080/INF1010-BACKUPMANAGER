@@ -40,6 +40,7 @@ def iniciar_interface():
     trazer_janela_para_frente(janela)
 
     def ao_fechar():
+        sincronizar_perfil_atual_interface(estado_interface, False)
         codigo_finalizar = controller.finalizar_aplicacao()
         if codigo_finalizar != OK:
             mostrar_mensagem_resultado(codigo_finalizar)
@@ -87,8 +88,11 @@ def criar_estado_interface():
         "lista_perfis": None,
         "entrada_nome": None,
         "lista_origens": None,
+        "lista_tipos": None,
         "lista_destinos": None,
+        "entrada_tipo_nome": None,
         "operacao_var": None,
+        "destino_selecionado_indice": None,
         "ativo_var": None,
         "frame_extensoes": None,
         "extensoes_vars": {},
@@ -101,6 +105,9 @@ def criar_estado_interface():
         "agendamento_tipo_var": None,
         "entrada_intervalo": None,
         "perfil_selecionado_id": None,
+        "origens_configuradas": [],
+        "origem_selecionada_indice": None,
+        "tipo_selecionado_indice": None,
         "botao_backup": None,
         "backup_em_execucao": False,
     }
@@ -317,63 +324,121 @@ def criar_area_perfis(janela, estado_interface):
 
 
 def criar_area_origens_destinos(janela, estado_interface):
-    """Cria a area de origens e destinos."""
-    frame = criar_painel(janela, "Origens e destinos")
+    """Cria a area do fluxo origem -> tipo -> destino."""
+    frame = criar_painel(janela, "Fluxo de backup")
     frame.pack(fill="both", expand=True, side="left", padx=(0, 4), pady=8)
 
-    criar_label(frame, "Origens").pack(anchor="w", padx=8, pady=(8, 0))
-    estado_interface["lista_origens"] = criar_listbox(frame, 7)
-    estado_interface["lista_origens"].pack(fill="both", expand=True, padx=8, pady=4)
+    conteudo = ctk.CTkFrame(frame, fg_color="transparent")
+    conteudo.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    conteudo.columnconfigure(0, weight=1)
+    conteudo.columnconfigure(1, weight=1)
+    conteudo.columnconfigure(2, weight=1)
+    conteudo.rowconfigure(0, weight=1)
 
-    linha_origens = ctk.CTkFrame(frame, fg_color="transparent")
-    linha_origens.pack(fill="x", padx=8, pady=(0, 8))
+    coluna_origens = ctk.CTkFrame(conteudo, fg_color="transparent")
+    coluna_origens.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+    coluna_origens.columnconfigure(0, weight=1)
+    coluna_origens.rowconfigure(1, weight=1)
+    criar_label(coluna_origens, "Origens").grid(row=0, column=0, sticky="w")
+    estado_interface["lista_origens"] = criar_listbox(coluna_origens, 10)
+    estado_interface["lista_origens"].grid(row=1, column=0, sticky="nsew", pady=4)
+    estado_interface["lista_origens"].bind(
+        "<<ListboxSelect>>",
+        lambda evento: selecionar_origem_configurada_interface(estado_interface),
+    )
+
+    linha_origens = ctk.CTkFrame(coluna_origens, fg_color="transparent")
+    linha_origens.grid(row=2, column=0, sticky="ew")
     criar_botao(linha_origens, "Adicionar origem", lambda: adicionar_origem_interface(estado_interface), COR_AZUL).pack(
         side="left"
     )
-    criar_botao(linha_origens, "Remover origem", lambda: remover_item_lista(estado_interface["lista_origens"])).pack(
+    criar_botao(linha_origens, "Remover origem", lambda: remover_origem_configurada_interface(estado_interface)).pack(
         side="left", padx=6
     )
+    criar_botao(
+        linha_origens,
+        "On/Off",
+        lambda: alternar_origem_ativa_interface(estado_interface),
+        largura=72,
+    ).pack(side="left")
     botao_abrir_origem = criar_botao(
         linha_origens,
         "\U0001F4C1",
-        lambda: abrir_pasta_selecionada(estado_interface["lista_origens"], "origem"),
+        lambda: abrir_origem_selecionada_interface(estado_interface),
         largura=42,
     )
     botao_abrir_origem.pack(side="left")
     adicionar_tooltip(botao_abrir_origem, "Abrir pasta de origem")
 
-    criar_label(frame, "Destinos").pack(anchor="w", padx=8)
-    estado_interface["lista_destinos"] = criar_listbox(frame, 7)
-    estado_interface["lista_destinos"].pack(fill="both", expand=True, padx=8, pady=4)
+    coluna_tipos = ctk.CTkFrame(conteudo, fg_color="transparent")
+    coluna_tipos.grid(row=0, column=1, sticky="nsew", padx=4)
+    coluna_tipos.columnconfigure(0, weight=1)
+    coluna_tipos.rowconfigure(2, weight=1)
+    criar_label(coluna_tipos, "Tipos da origem").grid(row=0, column=0, sticky="w")
+    estado_interface["entrada_tipo_nome"] = criar_entry(coluna_tipos)
+    estado_interface["entrada_tipo_nome"].grid(row=1, column=0, sticky="ew", pady=4)
+    estado_interface["lista_tipos"] = criar_listbox(coluna_tipos, 10)
+    estado_interface["lista_tipos"].grid(row=2, column=0, sticky="nsew", pady=(0, 4))
+    estado_interface["lista_tipos"].bind(
+        "<<ListboxSelect>>",
+        lambda evento: selecionar_tipo_arquivo_interface(estado_interface),
+    )
+    linha_tipos = ctk.CTkFrame(coluna_tipos, fg_color="transparent")
+    linha_tipos.grid(row=3, column=0, sticky="ew")
+    criar_botao(linha_tipos, "Adicionar tipo", lambda: adicionar_tipo_arquivo_interface(estado_interface), COR_AZUL).pack(
+        side="left"
+    )
+    criar_botao(linha_tipos, "Remover tipo", lambda: remover_tipo_arquivo_interface(estado_interface)).pack(
+        side="left", padx=6
+    )
+    criar_botao(
+        linha_tipos,
+        "On/Off",
+        lambda: alternar_tipo_ativo_interface(estado_interface),
+        largura=72,
+    ).pack(side="left")
 
-    linha_destinos = ctk.CTkFrame(frame, fg_color="transparent")
-    linha_destinos.pack(fill="x", padx=8, pady=(0, 8))
+    coluna_destinos = ctk.CTkFrame(conteudo, fg_color="transparent")
+    coluna_destinos.grid(row=0, column=2, sticky="nsew", padx=(4, 0))
+    coluna_destinos.columnconfigure(0, weight=1)
+    coluna_destinos.rowconfigure(1, weight=1)
+    criar_label(coluna_destinos, "Destinos do tipo").grid(row=0, column=0, sticky="w")
+    estado_interface["lista_destinos"] = criar_listbox(coluna_destinos, 10)
+    estado_interface["lista_destinos"].grid(row=1, column=0, sticky="nsew", pady=4)
+    estado_interface["lista_destinos"].bind(
+        "<<ListboxSelect>>",
+        lambda evento: selecionar_destino_tipo_interface(estado_interface),
+    )
+
+    linha_destinos = ctk.CTkFrame(coluna_destinos, fg_color="transparent")
+    linha_destinos.grid(row=2, column=0, sticky="ew")
     criar_botao(linha_destinos, "Adicionar destino", lambda: adicionar_destino_interface(estado_interface), COR_AZUL).pack(
         side="left"
     )
     criar_botao(
         linha_destinos,
         "Remover destino",
-        lambda: remover_item_lista(estado_interface["lista_destinos"]),
+        lambda: remover_destino_tipo_interface(estado_interface),
     ).pack(side="left", padx=6)
     botao_abrir_destino = criar_botao(
         linha_destinos,
         "\U0001F4C1",
-        lambda: abrir_pasta_selecionada(estado_interface["lista_destinos"], "destino"),
+        lambda: abrir_destino_selecionado_interface(estado_interface),
         largura=42,
     )
     botao_abrir_destino.pack(side="left")
     adicionar_tooltip(botao_abrir_destino, "Abrir pasta de destino")
 
     estado_interface["operacao_var"] = tk.StringVar(value="copiar")
-    linha_operacao = ctk.CTkFrame(frame, fg_color="transparent")
-    linha_operacao.pack(fill="x", padx=8, pady=(0, 8))
+    linha_operacao = ctk.CTkFrame(coluna_destinos, fg_color="transparent")
+    linha_operacao.grid(row=3, column=0, sticky="ew", pady=(8, 0))
     criar_label(linha_operacao, "Operacao").pack(side="left")
     ctk.CTkRadioButton(
         linha_operacao,
         text="Copiar",
         variable=estado_interface["operacao_var"],
         value="copiar",
+        command=lambda: atualizar_operacao_destino_interface(estado_interface),
         text_color=COR_TEXTO,
         fg_color=COR_AZUL,
         hover_color="#1d4ed8",
@@ -386,12 +451,26 @@ def criar_area_origens_destinos(janela, estado_interface):
         text="Mover",
         variable=estado_interface["operacao_var"],
         value="mover",
+        command=lambda: atualizar_operacao_destino_interface(estado_interface),
         text_color=COR_TEXTO,
         fg_color=COR_AZUL,
         hover_color="#1d4ed8",
         font=FONTE_PADRAO,
     ).pack(
         side="left"
+    )
+    ctk.CTkRadioButton(
+        linha_operacao,
+        text="Recortar",
+        variable=estado_interface["operacao_var"],
+        value="recortar",
+        command=lambda: atualizar_operacao_destino_interface(estado_interface),
+        text_color=COR_TEXTO,
+        fg_color=COR_AZUL,
+        hover_color="#1d4ed8",
+        font=FONTE_PADRAO,
+    ).pack(
+        side="left", padx=8
     )
 
     return frame
@@ -532,15 +611,6 @@ def criar_area_botoes(janela, estado_interface):
     frame = ctk.CTkFrame(janela, fg_color="transparent")
     frame.grid(row=0, column=1, sticky="ne", padx=(12, 0), pady=(6, 0))
 
-    criar_botao(
-        frame,
-        "Aplicar",
-        lambda: aplicar_alteracoes_interface(estado_interface),
-        COR_AZUL,
-        largura=92,
-    ).pack(
-        side="left", padx=(0, 6)
-    )
     estado_interface["botao_backup"] = criar_botao(
         frame,
         "Backup",
@@ -548,19 +618,11 @@ def criar_area_botoes(janela, estado_interface):
         COR_VERDE,
         largura=92,
     )
-    estado_interface["botao_backup"].pack(side="left", padx=6)
+    estado_interface["botao_backup"].pack(side="left", padx=(0, 6))
     criar_botao(
         frame,
         "Historico",
         lambda: mostrar_historico_interface(estado_interface),
-        largura=92,
-    ).pack(
-        side="left", padx=6
-    )
-    criar_botao(
-        frame,
-        "Arquivos",
-        lambda: visualizar_arquivos_interface(estado_interface),
         largura=92,
     ).pack(
         side="left", padx=6
@@ -613,6 +675,9 @@ def selecionar_perfil_interface(estado_interface):
 
     indice = selecao[0]
     perfil_id = estado_interface["ids_perfis"][indice]
+    if estado_interface.get("perfil_selecionado_id") and estado_interface.get("perfil_selecionado_id") != perfil_id:
+        sincronizar_perfil_atual_interface(estado_interface, False)
+
     codigo, perfil = controller.obter_perfil_por_id(perfil_id)
     if codigo != OK:
         mostrar_mensagem_resultado(codigo)
@@ -655,17 +720,136 @@ def excluir_perfil_interface(estado_interface):
 
 def adicionar_origem_interface(estado_interface):
     """Adiciona uma pasta de origem na lista visual."""
+    salvar_tipo_selecionado_em_memoria(estado_interface)
     caminho = filedialog.askdirectory(title="Escolha a pasta de origem")
     if caminho:
-        estado_interface["lista_origens"].insert(tk.END, caminho)
+        origem = {
+            "id": "origem_" + str(len(estado_interface["origens_configuradas"]) + 1),
+            "caminho": caminho,
+            "ativo": True,
+            "tipos_arquivo": [],
+        }
+        estado_interface["origens_configuradas"].append(origem)
+        atualizar_lista_origens_configuradas(estado_interface)
+        selecionar_origem_por_indice(estado_interface, len(estado_interface["origens_configuradas"]) - 1)
     return OK
 
 
 def adicionar_destino_interface(estado_interface):
-    """Adiciona uma pasta de destino na lista visual."""
+    """Adiciona uma pasta de destino ao tipo selecionado."""
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    tipo = obter_tipo_selecionado(estado_interface)
+    if tipo is None:
+        messagebox.showwarning("BackupManager", "Selecione um tipo de arquivo.")
+        return ERRO_DADOS_INVALIDOS
+
     caminho = filedialog.askdirectory(title="Escolha a pasta de destino")
     if caminho:
-        estado_interface["lista_destinos"].insert(tk.END, caminho)
+        destino = {
+            "caminho": caminho,
+            "operacao": estado_interface["operacao_var"].get(),
+        }
+        tipo.setdefault("destinos", []).append(destino)
+        atualizar_lista_destinos_tipo(estado_interface)
+        selecionar_destino_por_indice(estado_interface, len(tipo["destinos"]) - 1)
+    return OK
+
+
+def adicionar_tipo_arquivo_interface(estado_interface):
+    """Adiciona tipo de arquivo a origem selecionada."""
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    origem = obter_origem_selecionada(estado_interface)
+    if origem is None:
+        messagebox.showwarning("BackupManager", "Selecione uma origem.")
+        return ERRO_DADOS_INVALIDOS
+
+    tipo = {
+        "id": "tipo_" + str(len(origem.get("tipos_arquivo", [])) + 1),
+        "nome": "Novo tipo",
+        "ativo": True,
+        "restricoes": criar_restricoes_da_interface(estado_interface),
+        "destinos": [],
+    }
+    origem.setdefault("tipos_arquivo", []).append(tipo)
+    atualizar_lista_tipos_origem(estado_interface)
+    selecionar_tipo_por_indice(estado_interface, len(origem["tipos_arquivo"]) - 1)
+    return OK
+
+
+def remover_origem_configurada_interface(estado_interface):
+    """Remove origem configurada selecionada."""
+    indice = estado_interface.get("origem_selecionada_indice")
+    if indice is None:
+        return ERRO_DADOS_INVALIDOS
+
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    origens = estado_interface["origens_configuradas"]
+    if 0 <= indice < len(origens):
+        origens.pop(indice)
+    estado_interface["origem_selecionada_indice"] = None
+    estado_interface["tipo_selecionado_indice"] = None
+    estado_interface["destino_selecionado_indice"] = None
+    atualizar_lista_origens_configuradas(estado_interface)
+    limpar_area_tipo_destino(estado_interface)
+    return OK
+
+
+def remover_tipo_arquivo_interface(estado_interface):
+    """Remove tipo de arquivo selecionado."""
+    origem = obter_origem_selecionada(estado_interface)
+    indice = estado_interface.get("tipo_selecionado_indice")
+    if origem is None or indice is None:
+        return ERRO_DADOS_INVALIDOS
+
+    tipos = origem.get("tipos_arquivo", [])
+    if 0 <= indice < len(tipos):
+        tipos.pop(indice)
+    estado_interface["tipo_selecionado_indice"] = None
+    estado_interface["destino_selecionado_indice"] = None
+    atualizar_lista_tipos_origem(estado_interface)
+    limpar_area_tipo_destino(estado_interface)
+    return OK
+
+
+def remover_destino_tipo_interface(estado_interface):
+    """Remove destino selecionado do tipo atual."""
+    tipo = obter_tipo_selecionado(estado_interface)
+    selecao = estado_interface["lista_destinos"].curselection()
+    if tipo is None or not selecao:
+        return ERRO_DADOS_INVALIDOS
+
+    destinos = tipo.get("destinos", [])
+    indice = selecao[0]
+    if 0 <= indice < len(destinos):
+        destinos.pop(indice)
+    estado_interface["destino_selecionado_indice"] = None
+    atualizar_lista_destinos_tipo(estado_interface)
+    return OK
+
+
+def alternar_origem_ativa_interface(estado_interface):
+    """Liga ou desliga a origem selecionada."""
+    origem = obter_origem_selecionada(estado_interface)
+    if origem is None:
+        return ERRO_DADOS_INVALIDOS
+
+    origem["ativo"] = not origem.get("ativo", True)
+    indice = estado_interface.get("origem_selecionada_indice")
+    atualizar_lista_origens_configuradas(estado_interface)
+    selecionar_origem_por_indice(estado_interface, indice)
+    return OK
+
+
+def alternar_tipo_ativo_interface(estado_interface):
+    """Liga ou desliga o tipo selecionado."""
+    tipo = obter_tipo_selecionado(estado_interface)
+    if tipo is None:
+        return ERRO_DADOS_INVALIDOS
+
+    tipo["ativo"] = not tipo.get("ativo", True)
+    indice = estado_interface.get("tipo_selecionado_indice")
+    atualizar_lista_tipos_origem(estado_interface)
+    selecionar_tipo_por_indice(estado_interface, indice)
     return OK
 
 
@@ -706,7 +890,14 @@ def abrir_pasta_selecionada(lista, tipo):
         messagebox.showwarning("BackupManager", "Selecione uma pasta de " + tipo + ".")
         return ERRO_DADOS_INVALIDOS
 
-    caminho = lista.get(selecao[0])
+    caminho = lista.get(selecao[0]).split(" | ")[0]
+    if caminho.startswith("[x] ") or caminho.startswith("[ ] "):
+        caminho = caminho[4:]
+    return abrir_pasta_por_caminho(caminho, tipo)
+
+
+def abrir_pasta_por_caminho(caminho, tipo):
+    """Abre uma pasta pelo caminho informado."""
     if not os.path.isdir(caminho):
         messagebox.showerror("BackupManager", "Pasta de " + tipo + " nao encontrada.")
         return ERRO_DADOS_INVALIDOS
@@ -720,14 +911,251 @@ def abrir_pasta_selecionada(lista, tipo):
     return OK
 
 
-def aplicar_alteracoes_interface(estado_interface):
-    """Aplica alteracoes do formulario ao estado em memoria."""
-    perfil = obter_dados_formulario(estado_interface)
-    if perfil is None:
-        mostrar_erro_validacao_formulario(estado_interface)
+def abrir_origem_selecionada_interface(estado_interface):
+    """Abre a pasta da origem selecionada."""
+    origem = obter_origem_selecionada(estado_interface)
+    if origem is None:
+        messagebox.showwarning("BackupManager", "Selecione uma pasta de origem.")
+        return ERRO_DADOS_INVALIDOS
+    return abrir_pasta_por_caminho(origem.get("caminho", ""), "origem")
+
+
+def abrir_destino_selecionado_interface(estado_interface):
+    """Abre a pasta do destino selecionado."""
+    destino = obter_destino_selecionado(estado_interface)
+    if destino is None:
+        messagebox.showwarning("BackupManager", "Selecione uma pasta de destino.")
+        return ERRO_DADOS_INVALIDOS
+    return abrir_pasta_por_caminho(destino.get("caminho", ""), "destino")
+
+
+def atualizar_lista_origens_configuradas(estado_interface):
+    """Atualiza a listbox de origens configuradas."""
+    lista = estado_interface["lista_origens"]
+    lista.delete(0, tk.END)
+    for origem in estado_interface["origens_configuradas"]:
+        marcador = "[x] " if origem.get("ativo", True) else "[ ] "
+        lista.insert(tk.END, marcador + origem.get("caminho", ""))
+    return OK
+
+
+def atualizar_lista_tipos_origem(estado_interface):
+    """Atualiza tipos da origem selecionada."""
+    lista = estado_interface["lista_tipos"]
+    lista.delete(0, tk.END)
+    origem = obter_origem_selecionada(estado_interface)
+    if origem is None:
         return ERRO_DADOS_INVALIDOS
 
-    codigo = controller.salvar_perfil_editado(perfil)
+    for tipo in origem.get("tipos_arquivo", []):
+        marcador = "[x] " if tipo.get("ativo", True) else "[ ] "
+        lista.insert(tk.END, marcador + tipo.get("nome", "Sem nome"))
+    return OK
+
+
+def atualizar_lista_destinos_tipo(estado_interface):
+    """Atualiza destinos do tipo selecionado."""
+    lista = estado_interface["lista_destinos"]
+    lista.delete(0, tk.END)
+    estado_interface["destino_selecionado_indice"] = None
+    tipo = obter_tipo_selecionado(estado_interface)
+    if tipo is None:
+        return ERRO_DADOS_INVALIDOS
+
+    for destino in tipo.get("destinos", []):
+        lista.insert(tk.END, destino.get("caminho", "") + " | " + destino.get("operacao", "copiar"))
+    return OK
+
+
+def selecionar_destino_tipo_interface(estado_interface):
+    """Seleciona destino do tipo atual e carrega sua operacao."""
+    selecao = estado_interface["lista_destinos"].curselection()
+    if not selecao:
+        return ERRO_DADOS_INVALIDOS
+
+    estado_interface["destino_selecionado_indice"] = selecao[0]
+    destino = obter_destino_selecionado(estado_interface)
+    if destino is not None:
+        estado_interface["operacao_var"].set(destino.get("operacao", "copiar"))
+    return OK
+
+
+def selecionar_destino_por_indice(estado_interface, indice):
+    """Seleciona destino visualmente por indice."""
+    lista = estado_interface["lista_destinos"]
+    if indice < 0 or indice >= lista.size():
+        return ERRO_DADOS_INVALIDOS
+    lista.selection_clear(0, tk.END)
+    lista.selection_set(indice)
+    lista.activate(indice)
+    return selecionar_destino_tipo_interface(estado_interface)
+
+
+def obter_destino_selecionado(estado_interface):
+    """Retorna destino selecionado do tipo atual."""
+    tipo = obter_tipo_selecionado(estado_interface)
+    indice = estado_interface.get("destino_selecionado_indice")
+    if tipo is None or indice is None:
+        return None
+    destinos = tipo.get("destinos", [])
+    if indice < 0 or indice >= len(destinos):
+        return None
+    return destinos[indice]
+
+
+def atualizar_operacao_destino_interface(estado_interface):
+    """Atualiza operacao do destino selecionado."""
+    destino = obter_destino_selecionado(estado_interface)
+    if destino is None:
+        return OK
+
+    destino["operacao"] = estado_interface["operacao_var"].get()
+    indice = estado_interface.get("destino_selecionado_indice")
+    atualizar_lista_destinos_tipo(estado_interface)
+    selecionar_destino_por_indice(estado_interface, indice)
+    return OK
+
+
+def selecionar_origem_configurada_interface(estado_interface):
+    """Seleciona origem e atualiza tipos relacionados."""
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    selecao = estado_interface["lista_origens"].curselection()
+    if not selecao:
+        return ERRO_DADOS_INVALIDOS
+
+    estado_interface["origem_selecionada_indice"] = selecao[0]
+    estado_interface["tipo_selecionado_indice"] = None
+    estado_interface["destino_selecionado_indice"] = None
+    atualizar_lista_tipos_origem(estado_interface)
+    limpar_area_tipo_destino(estado_interface)
+
+    origem = obter_origem_selecionada(estado_interface)
+    if origem and origem.get("tipos_arquivo"):
+        selecionar_tipo_por_indice(estado_interface, 0)
+    return OK
+
+
+def selecionar_tipo_arquivo_interface(estado_interface):
+    """Seleciona tipo e carrega filtros e destinos."""
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    selecao = estado_interface["lista_tipos"].curselection()
+    if not selecao:
+        return ERRO_DADOS_INVALIDOS
+
+    estado_interface["tipo_selecionado_indice"] = selecao[0]
+    estado_interface["destino_selecionado_indice"] = None
+    preencher_formulario_com_tipo(estado_interface, obter_tipo_selecionado(estado_interface))
+    return OK
+
+
+def selecionar_origem_por_indice(estado_interface, indice):
+    """Seleciona origem visualmente por indice."""
+    lista = estado_interface["lista_origens"]
+    if indice < 0 or indice >= lista.size():
+        return ERRO_DADOS_INVALIDOS
+    lista.selection_clear(0, tk.END)
+    lista.selection_set(indice)
+    lista.activate(indice)
+    return selecionar_origem_configurada_interface(estado_interface)
+
+
+def selecionar_tipo_por_indice(estado_interface, indice):
+    """Seleciona tipo visualmente por indice."""
+    lista = estado_interface["lista_tipos"]
+    if indice < 0 or indice >= lista.size():
+        return ERRO_DADOS_INVALIDOS
+    lista.selection_clear(0, tk.END)
+    lista.selection_set(indice)
+    lista.activate(indice)
+    return selecionar_tipo_arquivo_interface(estado_interface)
+
+
+def obter_origem_selecionada(estado_interface):
+    """Retorna origem selecionada."""
+    indice = estado_interface.get("origem_selecionada_indice")
+    origens = estado_interface.get("origens_configuradas", [])
+    if indice is None or indice < 0 or indice >= len(origens):
+        return None
+    return origens[indice]
+
+
+def obter_tipo_selecionado(estado_interface):
+    """Retorna tipo selecionado."""
+    origem = obter_origem_selecionada(estado_interface)
+    indice = estado_interface.get("tipo_selecionado_indice")
+    if origem is None or indice is None:
+        return None
+    tipos = origem.get("tipos_arquivo", [])
+    if indice < 0 or indice >= len(tipos):
+        return None
+    return tipos[indice]
+
+
+def salvar_tipo_selecionado_em_memoria(estado_interface):
+    """Salva campos de filtro no tipo selecionado."""
+    tipo = obter_tipo_selecionado(estado_interface)
+    if tipo is None:
+        return OK
+
+    nome = estado_interface["entrada_tipo_nome"].get().strip()
+    if nome:
+        tipo["nome"] = nome
+    tipo["restricoes"] = criar_restricoes_da_interface(estado_interface)
+    return OK
+
+
+def criar_restricoes_da_interface(estado_interface):
+    """Cria dicionario de restricoes a partir da interface."""
+    tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
+    tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
+    data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())
+    data_max = converter_data_opcional(estado_interface["entrada_data_max"].get())
+    return {
+        "extensoes_permitidas": obter_extensoes_marcadas(estado_interface),
+        "nome_contem": estado_interface["entrada_nome_contem"].get().strip(),
+        "tamanho_min": 0 if tamanho_min == "invalido" else tamanho_min,
+        "tamanho_max": None if tamanho_max == "invalido" else tamanho_max,
+        "data_modificacao_min": None if data_min == "invalido" else data_min,
+        "data_modificacao_max": None if data_max == "invalido" else data_max,
+    }
+
+
+def preencher_formulario_com_tipo(estado_interface, tipo):
+    """Preenche filtros e destinos com dados do tipo."""
+    if tipo is None:
+        return ERRO_DADOS_INVALIDOS
+    preencher_entry(estado_interface["entrada_tipo_nome"], tipo.get("nome", ""))
+    restricoes = tipo.get("restricoes", {})
+    atualizar_checkboxes_extensoes(estado_interface, restricoes.get("extensoes_permitidas", []))
+    preencher_entry(estado_interface["entrada_nome_contem"], restricoes.get("nome_contem", ""))
+    preencher_entry(estado_interface["entrada_tamanho_min"], str(restricoes.get("tamanho_min", 0)))
+    tamanho_max = restricoes.get("tamanho_max")
+    preencher_entry(estado_interface["entrada_tamanho_max"], "" if tamanho_max is None else str(tamanho_max))
+    preencher_entry(estado_interface["entrada_data_min"], restricoes.get("data_modificacao_min") or "")
+    preencher_entry(estado_interface["entrada_data_max"], restricoes.get("data_modificacao_max") or "")
+    atualizar_lista_destinos_tipo(estado_interface)
+    return OK
+
+
+def limpar_area_tipo_destino(estado_interface):
+    """Limpa campos de tipo e destinos."""
+    preencher_entry(estado_interface["entrada_tipo_nome"], "")
+    atualizar_checkboxes_extensoes(estado_interface, [])
+    preencher_entry(estado_interface["entrada_nome_contem"], "")
+    preencher_entry(estado_interface["entrada_tamanho_min"], "")
+    preencher_entry(estado_interface["entrada_tamanho_max"], "")
+    preencher_entry(estado_interface["entrada_data_min"], "")
+    preencher_entry(estado_interface["entrada_data_max"], "")
+    estado_interface["lista_destinos"].delete(0, tk.END)
+    return OK
+
+
+def aplicar_alteracoes_interface(estado_interface):
+    """Aplica alteracoes do formulario ao estado em memoria."""
+    codigo, perfil = sincronizar_perfil_atual_interface(estado_interface, True)
+    if codigo != OK:
+        return codigo
+
     if codigo == OK:
         atualizar_lista_perfis(estado_interface)
         selecionar_perfil_por_id(estado_interface, perfil["id"])
@@ -737,7 +1165,11 @@ def aplicar_alteracoes_interface(estado_interface):
 
 def executar_backup_interface(estado_interface):
     """Executa o backup do perfil selecionado."""
-    perfil_id = estado_interface.get("perfil_selecionado_id")
+    codigo_salvar, perfil = sincronizar_perfil_atual_interface(estado_interface, True)
+    if codigo_salvar != OK:
+        return codigo_salvar
+
+    perfil_id = perfil.get("id")
     if not perfil_id:
         mostrar_mensagem_resultado(ERRO_DADOS_INVALIDOS)
         return ERRO_DADOS_INVALIDOS
@@ -796,6 +1228,8 @@ def finalizar_backup_interface(estado_interface, codigo, resultado, erro):
             + str(resultado.get("arquivos_copiados", 0))
             + "\nMovidos: "
             + str(resultado.get("arquivos_movidos", 0))
+            + "\nRecortados: "
+            + str(resultado.get("arquivos_recortados", 0))
         )
         if codigo == OK:
             messagebox.showinfo("BackupManager", mensagem)
@@ -866,6 +1300,9 @@ def mostrar_historico_interface(estado_interface):
     detalhes.grid(row=0, column=1, sticky="nsew")
 
     def preencher_historico():
+        if not widgets_existem(janela, lista, detalhes):
+            return
+
         codigo_atualizar, historico_atualizado = controller.consultar_historico_do_perfil(perfil_id)
         if codigo_atualizar != OK:
             mostrar_mensagem_resultado(codigo_atualizar)
@@ -890,6 +1327,9 @@ def mostrar_historico_interface(estado_interface):
         detalhes.configure(state="disabled")
 
     def atualizar_detalhes(indice):
+        if not widgets_existem(janela, detalhes):
+            return
+
         codigo_atualizar, historico_atualizado = controller.consultar_historico_do_perfil(perfil_id)
         if codigo_atualizar != OK or indice < 0 or indice >= len(historico_atualizado):
             return
@@ -906,9 +1346,16 @@ def mostrar_historico_interface(estado_interface):
             + str(registro.get("arquivos_copiados", 0))
             + "\nMovidos: "
             + str(registro.get("arquivos_movidos", 0))
+            + "\nRecortados: "
+            + str(registro.get("arquivos_recortados", 0))
             + "\nErros: "
             + str(len(erros))
         )
+        arquivos = registro.get("arquivos", [])
+        if arquivos:
+            conteudo += "\n\nArquivos:\n"
+            for arquivo in arquivos:
+                conteudo += formatar_arquivo_historico(arquivo) + "\n"
         if erros:
             conteudo += "\n\nDetalhes dos erros:\n" + "\n".join(str(erro) for erro in erros)
 
@@ -919,14 +1366,18 @@ def mostrar_historico_interface(estado_interface):
 
     def ao_selecionar(evento):
         del evento
+        if not widgets_existem(lista):
+            return
+
         selecao = lista.curselection()
         if selecao:
             atualizar_detalhes(selecao[0])
 
     def limpar_historico():
         codigo_limpar = controller.limpar_historico_do_perfil(perfil_id)
+        if codigo_limpar == OK:
+            preencher_historico()
         mostrar_mensagem_resultado(codigo_limpar)
-        preencher_historico()
 
     lista.bind("<<ListboxSelect>>", ao_selecionar)
     preencher_historico()
@@ -938,16 +1389,29 @@ def mostrar_historico_interface(estado_interface):
     return OK
 
 
+def widgets_existem(*widgets):
+    """Indica se todos os widgets informados ainda existem no Tk."""
+    try:
+        return all(widget is not None and widget.winfo_exists() for widget in widgets)
+    except tk.TclError:
+        return False
+
+
+def formatar_arquivo_historico(arquivo):
+    """Formata um arquivo processado para exibicao no historico."""
+    nome = arquivo.get("nome", "")
+    tipo = arquivo.get("tipo") or arquivo.get("extensao") or "(sem tipo)"
+    tamanho = str(arquivo.get("tamanho", 0))
+    operacao = arquivo.get("operacao", "")
+    status = arquivo.get("status", "")
+    destino = arquivo.get("destino", "")
+    return "- " + nome + " | " + tipo + " | " + tamanho + " bytes | " + operacao + " | " + status + " | " + destino
+
+
 def visualizar_arquivos_interface(estado_interface):
     """Mostra os arquivos encontrados nas origens do perfil."""
-    perfil = obter_dados_formulario(estado_interface)
-    if perfil is None:
-        mostrar_erro_validacao_formulario(estado_interface)
-        return ERRO_DADOS_INVALIDOS
-
-    codigo = controller.salvar_perfil_editado(perfil)
+    codigo, perfil = sincronizar_perfil_atual_interface(estado_interface, True)
     if codigo != OK:
-        mostrar_mensagem_resultado(codigo)
         return codigo
 
     codigo, arquivos = controller.obter_arquivos_do_perfil(perfil["id"])
@@ -1061,41 +1525,48 @@ def visualizar_arquivos_interface(estado_interface):
     return OK
 
 
+def sincronizar_perfil_atual_interface(estado_interface, exibir_erros):
+    """Salva em memoria a configuracao atual da tela quando ela estiver valida."""
+    if not estado_interface.get("perfil_selecionado_id"):
+        return ERRO_DADOS_INVALIDOS, None
+
+    perfil = obter_dados_formulario(estado_interface)
+    if perfil is None:
+        if exibir_erros:
+            mostrar_erro_validacao_formulario(estado_interface)
+        return ERRO_DADOS_INVALIDOS, None
+
+    codigo = controller.salvar_perfil_editado(perfil)
+    if codigo != OK and exibir_erros:
+        mostrar_mensagem_resultado(codigo)
+    return codigo, perfil
+
+
 def obter_dados_formulario(estado_interface):
     """Coleta dados do formulario para um dicionario de perfil."""
     perfil_id = estado_interface.get("perfil_selecionado_id")
     if not perfil_id:
         return None
 
-    tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
-    tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
     intervalo = converter_inteiro_opcional(estado_interface["entrada_intervalo"].get(), None)
-    data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())
-    data_max = converter_data_opcional(estado_interface["entrada_data_max"].get())
+    salvar_tipo_selecionado_em_memoria(estado_interface)
 
     if (
-        tamanho_min == "invalido"
-        or tamanho_max == "invalido"
-        or intervalo == "invalido"
-        or data_min == "invalido"
-        or data_max == "invalido"
+        intervalo == "invalido"
+        or formulario_tipo_possui_valor_invalido(estado_interface)
+        or not estado_interface.get("origens_configuradas")
+        or existe_conflito_operacao_interface(estado_interface)
     ):
         return None
 
     return {
         "id": perfil_id,
         "nome": estado_interface["entrada_nome"].get(),
-        "origens": obter_itens_lista(estado_interface["lista_origens"]),
-        "destinos": obter_itens_lista(estado_interface["lista_destinos"]),
+        "origens": obter_caminhos_origens_configuradas(estado_interface),
+        "destinos": obter_caminhos_destinos_configurados(estado_interface),
         "operacao": estado_interface["operacao_var"].get(),
-        "restricoes": {
-            "extensoes_permitidas": obter_extensoes_marcadas(estado_interface),
-            "nome_contem": estado_interface["entrada_nome_contem"].get().strip(),
-            "tamanho_min": tamanho_min,
-            "tamanho_max": tamanho_max,
-            "data_modificacao_min": data_min,
-            "data_modificacao_max": data_max,
-        },
+        "restricoes": criar_restricoes_da_interface(estado_interface),
+        "origens_configuradas": estado_interface["origens_configuradas"],
         "agendamento": {
             "tipo": estado_interface["agendamento_tipo_var"].get(),
             "intervalo_minutos": intervalo,
@@ -1113,18 +1584,13 @@ def preencher_formulario_com_perfil(estado_interface, perfil):
     estado_interface["ativo_var"].set(perfil.get("ativo", True))
     estado_interface["operacao_var"].set(perfil.get("operacao", "copiar"))
 
-    preencher_lista(estado_interface["lista_origens"], perfil.get("origens", []))
-    preencher_lista(estado_interface["lista_destinos"], perfil.get("destinos", []))
-
-    restricoes = perfil.get("restricoes", {})
-    atualizar_checkboxes_extensoes(estado_interface, restricoes.get("extensoes_permitidas", []))
-    preencher_entry(estado_interface["entrada_nome_contem"], restricoes.get("nome_contem", ""))
-    preencher_entry(estado_interface["entrada_tamanho_min"], str(restricoes.get("tamanho_min", 0)))
-
-    tamanho_max = restricoes.get("tamanho_max")
-    preencher_entry(estado_interface["entrada_tamanho_max"], "" if tamanho_max is None else str(tamanho_max))
-    preencher_entry(estado_interface["entrada_data_min"], restricoes.get("data_modificacao_min") or "")
-    preencher_entry(estado_interface["entrada_data_max"], restricoes.get("data_modificacao_max") or "")
+    estado_interface["origens_configuradas"] = montar_origens_configuradas_para_interface(perfil)
+    estado_interface["origem_selecionada_indice"] = None
+    estado_interface["tipo_selecionado_indice"] = None
+    atualizar_lista_origens_configuradas(estado_interface)
+    limpar_area_tipo_destino(estado_interface)
+    if estado_interface["origens_configuradas"]:
+        selecionar_origem_por_indice(estado_interface, 0)
 
     agendamento = perfil.get("agendamento", {})
     estado_interface["agendamento_tipo_var"].set(agendamento.get("tipo", "manual"))
@@ -1136,7 +1602,11 @@ def preencher_formulario_com_perfil(estado_interface, perfil):
 def limpar_formulario(estado_interface):
     """Limpa os campos do formulario."""
     preencher_entry(estado_interface["entrada_nome"], "")
+    estado_interface["origens_configuradas"] = []
+    estado_interface["origem_selecionada_indice"] = None
+    estado_interface["tipo_selecionado_indice"] = None
     preencher_lista(estado_interface["lista_origens"], [])
+    preencher_lista(estado_interface["lista_tipos"], [])
     preencher_lista(estado_interface["lista_destinos"], [])
     estado_interface["operacao_var"].set("copiar")
     estado_interface["ativo_var"].set(True)
@@ -1154,6 +1624,90 @@ def limpar_formulario(estado_interface):
 def obter_itens_lista(lista):
     """Retorna todos os itens de uma listbox."""
     return list(lista.get(0, tk.END))
+
+
+def montar_origens_configuradas_para_interface(perfil):
+    """Monta origens configuradas para a interface, migrando perfil legado quando preciso."""
+    origens_configuradas = perfil.get("origens_configuradas", [])
+    if isinstance(origens_configuradas, list) and origens_configuradas:
+        return copiar_lista_dicionarios(origens_configuradas)
+
+    origens = perfil.get("origens", [])
+    if not isinstance(origens, list):
+        return []
+
+    destinos = []
+    for destino in perfil.get("destinos", []):
+        destinos.append({
+            "caminho": destino,
+            "operacao": perfil.get("operacao", "copiar"),
+        })
+
+    configuradas = []
+    for indice, origem in enumerate(origens):
+        configuradas.append({
+            "id": "origem_" + str(indice + 1),
+            "caminho": origem,
+            "ativo": True,
+            "tipos_arquivo": [
+                {
+                    "id": "tipo_1",
+                    "nome": "Todos os arquivos",
+                    "ativo": True,
+                    "restricoes": perfil.get("restricoes", {}),
+                    "destinos": copiar_lista_dicionarios(destinos),
+                }
+            ],
+        })
+    return configuradas
+
+
+def copiar_lista_dicionarios(lista):
+    """Copia lista simples de dicionarios aninhados."""
+    copia = []
+    for item in lista:
+        if isinstance(item, dict):
+            novo = {}
+            for chave, valor in item.items():
+                if isinstance(valor, list):
+                    novo[chave] = copiar_lista_dicionarios(valor)
+                elif isinstance(valor, dict):
+                    novo[chave] = valor.copy()
+                else:
+                    novo[chave] = valor
+            copia.append(novo)
+    return copia
+
+
+def obter_caminhos_origens_configuradas(estado_interface):
+    """Retorna caminhos de origens configuradas."""
+    return [origem.get("caminho") for origem in estado_interface["origens_configuradas"] if origem.get("caminho")]
+
+
+def obter_caminhos_destinos_configurados(estado_interface):
+    """Retorna caminhos unicos de destinos configurados."""
+    destinos = []
+    for origem in estado_interface["origens_configuradas"]:
+        for tipo in origem.get("tipos_arquivo", []):
+            for destino in tipo.get("destinos", []):
+                caminho = destino.get("caminho")
+                if caminho and caminho not in destinos:
+                    destinos.append(caminho)
+    return destinos
+
+
+def formulario_tipo_possui_valor_invalido(estado_interface):
+    """Indica se filtros do tipo atual possuem valores invalidos."""
+    tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
+    tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
+    data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())
+    data_max = converter_data_opcional(estado_interface["entrada_data_max"].get())
+    return (
+        tamanho_min == "invalido"
+        or tamanho_max == "invalido"
+        or data_min == "invalido"
+        or data_max == "invalido"
+    )
 
 
 def preencher_lista(lista, itens):
@@ -1236,6 +1790,10 @@ def mostrar_erro_validacao_formulario(estado_interface):
         messagebox.showerror("BackupManager", "Informe um nome para o perfil.")
         return ERRO_DADOS_INVALIDOS
 
+    if not estado_interface.get("origens_configuradas"):
+        messagebox.showerror("BackupManager", "Adicione pelo menos uma origem.")
+        return ERRO_DADOS_INVALIDOS
+
     tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
     tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
     intervalo = converter_inteiro_opcional(estado_interface["entrada_intervalo"].get(), None)
@@ -1252,8 +1810,28 @@ def mostrar_erro_validacao_formulario(estado_interface):
         messagebox.showerror("BackupManager", "Use datas no formato AAAA-MM-DD HH:MM:SS.")
         return ERRO_DADOS_INVALIDOS
 
+    if existe_conflito_operacao_interface(estado_interface):
+        messagebox.showerror(
+            "BackupManager",
+            "Mover ou recortar so pode ser usado com um destino para o mesmo tipo de arquivo.",
+        )
+        return ERRO_DADOS_INVALIDOS
+
     messagebox.showerror("BackupManager", "Verifique os dados do formulario.")
     return ERRO_DADOS_INVALIDOS
+
+
+def existe_conflito_operacao_interface(estado_interface):
+    """Verifica conflito visual de mover/recortar em multiplos destinos."""
+    for origem in estado_interface.get("origens_configuradas", []):
+        for tipo in origem.get("tipos_arquivo", []):
+            destinos = tipo.get("destinos", [])
+            if len(destinos) <= 1:
+                continue
+            for destino in destinos:
+                if destino.get("operacao") in ("mover", "recortar"):
+                    return True
+    return False
 
 
 def mostrar_mensagem_resultado(codigo):

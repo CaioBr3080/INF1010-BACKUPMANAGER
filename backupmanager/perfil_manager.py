@@ -9,6 +9,8 @@ from backupmanager.return_codes import (
     ERRO_PERFIL_NAO_ENCONTRADO,
 )
 
+OPERACOES_VALIDAS = ("copiar", "mover", "recortar")
+
 
 def criar_restricoes_padrao():
     """Cria o dicionario padrao de restricoes de um perfil."""
@@ -29,6 +31,40 @@ def criar_agendamento_padrao():
         "intervalo_minutos": None,
         "executar_ao_detectar_mudanca": False,
         "ultima_execucao": None,
+    }
+
+
+def criar_destino_tipo(caminho, operacao="copiar"):
+    """Cria destino vinculado a um tipo de arquivo."""
+    return {
+        "caminho": caminho,
+        "operacao": operacao,
+    }
+
+
+def criar_tipo_arquivo(nome, restricoes=None, destinos=None):
+    """Cria configuracao de tipo de arquivo para uma origem."""
+    if restricoes is None:
+        restricoes = criar_restricoes_padrao()
+    if destinos is None:
+        destinos = []
+
+    return {
+        "id": "tipo_" + uuid.uuid4().hex[:8],
+        "nome": nome,
+        "ativo": True,
+        "restricoes": restricoes,
+        "destinos": destinos,
+    }
+
+
+def criar_origem_configurada(caminho):
+    """Cria origem com tipos e destinos relacionados."""
+    return {
+        "id": "origem_" + uuid.uuid4().hex[:8],
+        "caminho": caminho,
+        "ativo": True,
+        "tipos_arquivo": [],
     }
 
 
@@ -58,6 +94,7 @@ def criar_perfil(nome):
         "destinos": [],
         "operacao": "copiar",
         "restricoes": criar_restricoes_padrao(),
+        "origens_configuradas": [],
         "agendamento": criar_agendamento_padrao(),
         "estado_arquivos": {},
         "ativo": True,
@@ -162,7 +199,7 @@ def remover_destino(perfis, perfil_id, caminho):
 
 def alterar_operacao(perfis, perfil_id, operacao):
     """Altera a operacao do perfil para copiar ou mover."""
-    if operacao not in ("copiar", "mover"):
+    if operacao not in OPERACOES_VALIDAS:
         return ERRO_OPERACAO_INVALIDA
 
     codigo, perfil = consultar_perfil(perfis, perfil_id)
@@ -189,4 +226,3 @@ def alterar_agendamento(perfis, perfil_id, agendamento):
         return codigo
     perfil["agendamento"] = agendamento
     return OK
-

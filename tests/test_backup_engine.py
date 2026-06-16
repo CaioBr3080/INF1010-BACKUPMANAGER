@@ -287,6 +287,204 @@ class TestBackupEngine(unittest.TestCase):
                 self.assertEqual(resultado["status"], "sem_arquivos")
                 self.assertFalse((Path(destino) / "nota.txt").exists())
 
+    def test_executar_backup_configurado_envia_tipos_para_destinos_distintos(self):
+        with tempfile.TemporaryDirectory() as origem:
+            with tempfile.TemporaryDirectory() as destino_pdf:
+                with tempfile.TemporaryDirectory() as destino_img:
+                    pdf = Path(origem) / "relatorio.pdf"
+                    imagem = Path(origem) / "foto.png"
+                    pdf.write_text("pdf", encoding="utf-8")
+                    imagem.write_text("png", encoding="utf-8")
+                    perfil = {
+                        "id": "perfil_001",
+                        "origens_configuradas": [
+                            {
+                                "id": "origem_001",
+                                "caminho": origem,
+                                "tipos_arquivo": [
+                                    {
+                                        "id": "tipo_pdf",
+                                        "nome": "PDFs",
+                                        "restricoes": {"extensoes_permitidas": [".pdf"]},
+                                        "destinos": [{"caminho": destino_pdf, "operacao": "copiar"}],
+                                    },
+                                    {
+                                        "id": "tipo_img",
+                                        "nome": "Imagens",
+                                        "restricoes": {"extensoes_permitidas": [".png"]},
+                                        "destinos": [{"caminho": destino_img, "operacao": "copiar"}],
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+
+                    codigo, resultado = backup_engine.executar_backup(perfil)
+
+                    self.assertEqual(codigo, OK)
+                    self.assertEqual(resultado["status"], "sucesso")
+                    self.assertEqual(resultado["arquivos_processados"], 2)
+                    self.assertEqual(len(resultado["arquivos"]), 2)
+                    self.assertEqual(resultado["arquivos"][0]["tipo"], "PDFs")
+                    self.assertEqual(resultado["arquivos"][0]["tamanho"], 3)
+                    self.assertTrue((Path(destino_pdf) / "relatorio.pdf").exists())
+                    self.assertTrue((Path(destino_img) / "foto.png").exists())
+                    self.assertFalse((Path(destino_pdf) / "foto.png").exists())
+                    self.assertFalse((Path(destino_img) / "relatorio.pdf").exists())
+
+    def test_executar_backup_configurado_recorta_para_destino_unico(self):
+        with tempfile.TemporaryDirectory() as origem:
+            with tempfile.TemporaryDirectory() as destino:
+                arquivo = Path(origem) / "arquivo.txt"
+                arquivo.write_text("recortar", encoding="utf-8")
+                perfil = {
+                    "id": "perfil_001",
+                    "origens_configuradas": [
+                        {
+                            "id": "origem_001",
+                            "caminho": origem,
+                            "tipos_arquivo": [
+                                {
+                                    "id": "tipo_txt",
+                                    "nome": "Textos",
+                                    "restricoes": {"extensoes_permitidas": [".txt"]},
+                                    "destinos": [{"caminho": destino, "operacao": "recortar"}],
+                                }
+                            ],
+                        }
+                    ],
+                }
+
+                codigo, resultado = backup_engine.executar_backup(perfil)
+
+                self.assertEqual(codigo, OK)
+                self.assertEqual(resultado["arquivos_recortados"], 1)
+                self.assertEqual(resultado["arquivos"][0]["nome"], "arquivo.txt")
+                self.assertEqual(resultado["arquivos"][0]["operacao"], "recortar")
+                self.assertEqual(resultado["arquivos"][0]["tamanho"], 8)
+                self.assertFalse(arquivo.exists())
+                self.assertTrue((Path(destino) / "arquivo.txt").exists())
+
+    def test_validar_perfil_configurado_rejeita_mover_para_multiplos_destinos(self):
+        perfil = {
+            "id": "perfil_001",
+            "origens_configuradas": [
+                {
+                    "id": "origem_001",
+                    "caminho": "C:/origem",
+                    "tipos_arquivo": [
+                        {
+                            "id": "tipo_pdf",
+                            "nome": "PDFs",
+                            "restricoes": {"extensoes_permitidas": [".pdf"]},
+                            "destinos": [
+                                {"caminho": "D:/destino_1", "operacao": "mover"},
+                                {"caminho": "D:/destino_2", "operacao": "copiar"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        self.assertEqual(backup_engine.validar_perfil_para_backup(perfil), ERRO_OPERACAO_INVALIDA)
+
+    def test_executar_backup_configurado_ignora_origem_inativa(self):
+        with tempfile.TemporaryDirectory() as origem_ativa:
+            with tempfile.TemporaryDirectory() as origem_inativa:
+                with tempfile.TemporaryDirectory() as destino:
+                    arquivo_ativo = Path(origem_ativa) / "ativo.txt"
+                    arquivo_inativo = Path(origem_inativa) / "inativo.txt"
+                    arquivo_ativo.write_text("ativo", encoding="utf-8")
+                    arquivo_inativo.write_text("inativo", encoding="utf-8")
+                    tipo = {
+                        "id": "tipo_txt",
+                        "nome": "Textos",
+                        "restricoes": {"extensoes_permitidas": [".txt"]},
+                        "destinos": [{"caminho": destino, "operacao": "copiar"}],
+                    }
+                    perfil = {
+                        "id": "perfil_001",
+                        "origens_configuradas": [
+                            {
+                                "id": "origem_inativa",
+                                "caminho": origem_inativa,
+                                "ativo": False,
+                                "tipos_arquivo": [tipo],
+                            },
+                            {
+                                "id": "origem_ativa",
+                                "caminho": origem_ativa,
+                                "ativo": True,
+                                "tipos_arquivo": [tipo],
+                            },
+                        ],
+                    }
+
+                    codigo, resultado = backup_engine.executar_backup(perfil)
+
+                    self.assertEqual(codigo, OK)
+                    self.assertEqual(resultado["arquivos_processados"], 1)
+                    self.assertTrue((Path(destino) / "ativo.txt").exists())
+                    self.assertFalse((Path(destino) / "inativo.txt").exists())
+
+    def test_executar_backup_configurado_ignora_tipo_inativo(self):
+        with tempfile.TemporaryDirectory() as origem:
+            with tempfile.TemporaryDirectory() as destino:
+                arquivo = Path(origem) / "arquivo.txt"
+                arquivo.write_text("texto", encoding="utf-8")
+                perfil = {
+                    "id": "perfil_001",
+                    "origens_configuradas": [
+                        {
+                            "id": "origem_001",
+                            "caminho": origem,
+                            "ativo": True,
+                            "tipos_arquivo": [
+                                {
+                                    "id": "tipo_txt",
+                                    "nome": "Textos",
+                                    "ativo": False,
+                                    "restricoes": {"extensoes_permitidas": [".txt"]},
+                                    "destinos": [{"caminho": destino, "operacao": "copiar"}],
+                                }
+                            ],
+                        }
+                    ],
+                }
+
+                codigo, resultado = backup_engine.executar_backup(perfil)
+
+                self.assertEqual(codigo, ERRO_BACKUP_SEM_ARQUIVOS)
+                self.assertEqual(resultado["status"], "sem_arquivos")
+                self.assertFalse((Path(destino) / "arquivo.txt").exists())
+
+    def test_validar_perfil_configurado_ignora_conflito_de_tipo_inativo(self):
+        perfil = {
+            "id": "perfil_001",
+            "origens_configuradas": [
+                {
+                    "id": "origem_001",
+                    "caminho": "C:/origem",
+                    "ativo": True,
+                    "tipos_arquivo": [
+                        {
+                            "id": "tipo_pdf",
+                            "nome": "PDFs",
+                            "ativo": False,
+                            "restricoes": {"extensoes_permitidas": [".pdf"]},
+                            "destinos": [
+                                {"caminho": "D:/destino_1", "operacao": "mover"},
+                                {"caminho": "D:/destino_2", "operacao": "copiar"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        self.assertEqual(backup_engine.validar_perfil_para_backup(perfil), OK)
+
 
 if __name__ == "__main__":
     unittest.main()

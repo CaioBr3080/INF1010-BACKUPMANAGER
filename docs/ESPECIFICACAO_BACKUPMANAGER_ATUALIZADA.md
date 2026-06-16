@@ -9,8 +9,9 @@ O BackupManager e uma aplicacao desktop local para gerenciar perfis de backup. C
 - nome;
 - origens;
 - destinos;
-- operacao de copiar ou mover;
+- operacao de copiar, mover ou recortar;
 - restricoes de arquivos;
+- origens configuradas com tipos de arquivo e destinos por tipo;
 - agendamento;
 - estado ativo/inativo;
 - estado de arquivos monitorados;
@@ -122,6 +123,14 @@ Execucao real do backup:
 - registro de erros por arquivo no resultado.
 
 No modo `mover`, o arquivo e copiado para todos os destinos antes de ser removido da origem.
+
+O motor tambem aceita o modelo novo:
+
+```text
+Origem -> Tipo de Arquivo -> Destino -> Operacao
+```
+
+Nesse modelo, `mover` e `recortar` so podem ser usados por um destino para o mesmo tipo de arquivo. `copiar` pode ser usado em multiplos destinos.
 
 ### `history_manager.py`
 
