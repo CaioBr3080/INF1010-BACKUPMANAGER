@@ -17,6 +17,7 @@ def criar_restricoes_padrao():
     return {
         "extensoes_permitidas": [],
         "nome_contem": "",
+        "regras_nome": [],
         "tamanho_min": 0,
         "tamanho_max": None,
         "data_modificacao_min": None,

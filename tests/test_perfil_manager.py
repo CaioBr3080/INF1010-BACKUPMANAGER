@@ -12,6 +12,7 @@ class TestPerfilManager(unittest.TestCase):
         self.assertEqual(perfil["nome"], "Backup Faculdade")
         self.assertEqual(perfil["operacao"], "copiar")
         self.assertEqual(perfil["origens_configuradas"], [])
+        self.assertEqual(perfil["restricoes"]["regras_nome"], [])
 
     def test_criar_perfil_nome_vazio(self):
         codigo, perfil = perfil_manager.criar_perfil("")

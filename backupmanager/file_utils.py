@@ -26,15 +26,15 @@ def caminho_e_diretorio(caminho):
 
 
 def listar_arquivos_em_origem(origem):
-    """Lista recursivamente arquivos de uma origem."""
+    """Lista apenas arquivos diretamente dentro de uma origem."""
     if not caminho_e_diretorio(origem):
         return []
 
     arquivos = []
     try:
-        for raiz, _, nomes in os.walk(origem):
-            for nome in nomes:
-                arquivos.append(str(Path(raiz) / nome))
+        for item in Path(origem).iterdir():
+            if item.is_file():
+                arquivos.append(str(item))
     except (OSError, TypeError, ValueError):
         return []
     return arquivos
@@ -123,17 +123,55 @@ def atende_restricao_extensao(arquivo, restricoes):
 
 
 def atende_restricao_nome(arquivo, restricoes):
-    """Verifica filtro por trecho no nome."""
+    """Verifica filtros por nome do arquivo."""
+    nome = arquivo.get("nome", "")
+    if not isinstance(nome, str):
+        return False
+
+    regras = normalizar_regras_nome(restricoes)
+    if regras:
+        for regra in regras:
+            if nome_atende_regra(nome, regra):
+                return True
+        return False
+
     trecho = restricoes.get("nome_contem", "")
     if not trecho:
         return True
     if not isinstance(trecho, str):
         return False
-
-    nome = arquivo.get("nome", "")
-    if not isinstance(nome, str):
-        return False
     return trecho.strip().lower() in nome.lower()
+
+
+def normalizar_regras_nome(restricoes):
+    """Normaliza regras novas de nome, ignorando entradas invalidas."""
+    regras = restricoes.get("regras_nome", [])
+    if not isinstance(regras, list):
+        return []
+
+    normalizadas = []
+    for regra in regras:
+        if not isinstance(regra, dict):
+            continue
+        valor = regra.get("valor", "")
+        if not isinstance(valor, str) or not valor.strip():
+            continue
+        modo = regra.get("modo", "contem")
+        if modo not in ("contem", "exato"):
+            modo = "contem"
+        normalizadas.append({"valor": valor.strip(), "modo": modo})
+    return normalizadas
+
+
+def nome_atende_regra(nome, regra):
+    """Indica se o nome atende uma regra normalizada."""
+    nome_normalizado = nome.strip().lower()
+    valor = regra.get("valor", "").strip().lower()
+    if not valor:
+        return True
+    if regra.get("modo") == "exato":
+        return nome_normalizado == valor
+    return valor in nome_normalizado
 
 
 def atende_restricao_tamanho(arquivo, restricoes):

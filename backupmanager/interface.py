@@ -23,7 +23,8 @@ COR_VERDE = "#059669"
 COR_VERMELHO = "#dc2626"
 
 FONTE_FAMILIA = "Segoe UI"
-FONTE_PADRAO = (FONTE_FAMILIA, 10)
+FONTE_PADRAO = (FONTE_FAMILIA, 13)
+FONTE_SELECAO = (FONTE_FAMILIA, 13)
 FONTE_TITULO = (FONTE_FAMILIA, 28, "bold")
 FONTE_SECAO = (FONTE_FAMILIA, 13, "bold")
 
@@ -97,7 +98,10 @@ def criar_estado_interface():
         "frame_extensoes": None,
         "extensoes_vars": {},
         "entrada_nova_extensao": None,
-        "entrada_nome_contem": None,
+        "entrada_regra_nome": None,
+        "modo_regra_nome_var": None,
+        "lista_regras_nome": None,
+        "regras_nome": [],
         "entrada_tamanho_min": None,
         "entrada_tamanho_max": None,
         "entrada_data_min": None,
@@ -134,13 +138,31 @@ def trazer_janela_para_frente(janela):
 
 
 def manter_janela_acima_da_principal(janela_filha, janela_principal):
-    """Mantem uma janela secundaria acima da janela principal."""
-    if janela_principal is not None:
-        janela_filha.transient(janela_principal)
+    """Mantem janela secundaria acima da principal ate ela ser minimizada."""
+    try:
+        janela_filha.attributes("-toolwindow", False)
+    except tk.TclError:
+        pass
 
-    janela_filha.lift(janela_principal)
+    def atualizar_superioridade(evento=None):
+        del evento
+        if not widgets_existem(janela_filha):
+            return
+        try:
+            janela_filha.attributes("-topmost", janela_filha.state() != "iconic")
+        except tk.TclError:
+            return
+
+    janela_filha.bind("<Unmap>", atualizar_superioridade, add="+")
+    janela_filha.bind("<Map>", atualizar_superioridade, add="+")
+    janela_filha.bind("<FocusIn>", atualizar_superioridade, add="+")
+
+    if janela_principal is not None:
+        janela_filha.lift(janela_principal)
+    else:
+        janela_filha.lift()
     janela_filha.focus_force()
-    janela_filha.attributes("-topmost", True)
+    atualizar_superioridade()
     return OK
 
 
@@ -211,7 +233,7 @@ def criar_botao(container, texto, comando, cor=COR_PAINEL_2, texto_cor=COR_TEXTO
         width=largura or 140,
         height=34,
         corner_radius=6,
-        font=FONTE_PADRAO,
+        font=FONTE_SELECAO,
     )
 
 
@@ -468,7 +490,7 @@ def criar_area_origens_destinos(janela, estado_interface):
         text_color=COR_TEXTO,
         fg_color=COR_AZUL,
         hover_color="#1d4ed8",
-        font=FONTE_PADRAO,
+        font=FONTE_SELECAO,
     ).pack(
         side="left", padx=8
     )
@@ -546,18 +568,74 @@ def atualizar_checkboxes_extensoes(estado_interface, extensoes_marcadas=None):
     return OK
 
 
+def criar_area_regras_nome(container, estado_interface):
+    """Cria area de regras por nome de arquivo."""
+    criar_label(container, "Filtro por nome").pack(anchor="w", padx=8, pady=(8, 0))
+
+    linha_adicionar = ctk.CTkFrame(container, fg_color="transparent")
+    linha_adicionar.pack(fill="x", padx=8, pady=(4, 4))
+    estado_interface["entrada_regra_nome"] = criar_entry(linha_adicionar)
+    estado_interface["entrada_regra_nome"].pack(side="left", fill="x", expand=True)
+    estado_interface["entrada_regra_nome"].bind(
+        "<Return>",
+        lambda evento: adicionar_regra_nome_interface(estado_interface),
+    )
+    estado_interface["modo_regra_nome_var"] = tk.StringVar(value="Contem no nome")
+    combo_modo = ctk.CTkComboBox(
+        linha_adicionar,
+        variable=estado_interface["modo_regra_nome_var"],
+        values=("Contem no nome", "Nome completo"),
+        fg_color=COR_CAMPO,
+        border_color=COR_BORDA,
+        button_color=COR_PAINEL_2,
+        button_hover_color=COR_AZUL,
+        dropdown_fg_color=COR_PAINEL,
+        dropdown_hover_color=COR_AZUL,
+        text_color=COR_TEXTO,
+        dropdown_text_color=COR_TEXTO,
+        width=128,
+        height=34,
+        corner_radius=6,
+        font=FONTE_SELECAO,
+    )
+    combo_modo.pack(side="left", padx=(6, 0))
+    criar_botao(
+        linha_adicionar,
+        "Adicionar",
+        lambda: adicionar_regra_nome_interface(estado_interface),
+        COR_AZUL,
+        largura=86,
+    ).pack(side="left", padx=(6, 0))
+
+    estado_interface["lista_regras_nome"] = criar_listbox(container, 4)
+    estado_interface["lista_regras_nome"].pack(fill="x", padx=8, pady=(0, 4))
+    criar_botao(
+        container,
+        "Remover regra",
+        lambda: remover_regra_nome_interface(estado_interface),
+        largura=112,
+    ).pack(anchor="w", padx=8, pady=(0, 4))
+    atualizar_lista_regras_nome(estado_interface, [])
+    return estado_interface["lista_regras_nome"]
+
+
 def criar_area_restricoes(janela, estado_interface):
     """Cria a area de restricoes e agendamento."""
     frame = criar_painel(janela, "Restricoes e agendamento")
     frame.pack(fill="both", expand=True, side="right", padx=(4, 0), pady=8)
 
-    criar_area_extensoes(frame, estado_interface)
+    conteudo = ctk.CTkScrollableFrame(
+        frame,
+        fg_color="transparent",
+        scrollbar_button_color=COR_PAINEL_2,
+        scrollbar_button_hover_color=COR_AZUL,
+    )
+    conteudo.pack(fill="both", expand=True, padx=6, pady=(0, 8))
 
-    criar_label(frame, "Nome contem").pack(anchor="w", padx=8)
-    estado_interface["entrada_nome_contem"] = criar_entry(frame)
-    estado_interface["entrada_nome_contem"].pack(fill="x", padx=8, pady=4)
+    criar_area_extensoes(conteudo, estado_interface)
+    criar_area_regras_nome(conteudo, estado_interface)
 
-    linha_tamanhos = ctk.CTkFrame(frame, fg_color="transparent")
+    linha_tamanhos = ctk.CTkFrame(conteudo, fg_color="transparent")
     linha_tamanhos.pack(fill="x", padx=8, pady=4)
     criar_label(linha_tamanhos, "Tamanho min").grid(row=0, column=0, sticky="w")
     criar_label(linha_tamanhos, "Tamanho max").grid(row=0, column=1, sticky="w", padx=(8, 0))
@@ -568,7 +646,7 @@ def criar_area_restricoes(janela, estado_interface):
     linha_tamanhos.columnconfigure(0, weight=1)
     linha_tamanhos.columnconfigure(1, weight=1)
 
-    linha_datas = ctk.CTkFrame(frame, fg_color="transparent")
+    linha_datas = ctk.CTkFrame(conteudo, fg_color="transparent")
     linha_datas.pack(fill="x", padx=8, pady=4)
     criar_label(linha_datas, "Data mod. min").grid(row=0, column=0, sticky="w")
     criar_label(linha_datas, "Data mod. max").grid(row=0, column=1, sticky="w", padx=(8, 0))
@@ -580,9 +658,9 @@ def criar_area_restricoes(janela, estado_interface):
     linha_datas.columnconfigure(1, weight=1)
 
     estado_interface["agendamento_tipo_var"] = tk.StringVar(value="manual")
-    criar_label(frame, "Agendamento").pack(anchor="w", padx=8, pady=(8, 0))
+    criar_label(conteudo, "Agendamento").pack(anchor="w", padx=8, pady=(8, 0))
     combo = ctk.CTkComboBox(
-        frame,
+        conteudo,
         variable=estado_interface["agendamento_tipo_var"],
         values=("manual", "intervalo", "alteracao"),
         fg_color=COR_CAMPO,
@@ -599,8 +677,8 @@ def criar_area_restricoes(janela, estado_interface):
     )
     combo.pack(fill="x", padx=8, pady=4)
 
-    criar_label(frame, "Intervalo em minutos").pack(anchor="w", padx=8)
-    estado_interface["entrada_intervalo"] = criar_entry(frame)
+    criar_label(conteudo, "Intervalo em minutos").pack(anchor="w", padx=8)
+    estado_interface["entrada_intervalo"] = criar_entry(conteudo)
     estado_interface["entrada_intervalo"].pack(fill="x", padx=8, pady=4)
 
     return frame
@@ -875,6 +953,50 @@ def adicionar_extensao_interface(estado_interface):
     return OK
 
 
+def adicionar_regra_nome_interface(estado_interface):
+    """Adiciona regra de nome a lista do tipo atual."""
+    entrada = estado_interface.get("entrada_regra_nome")
+    if entrada is None:
+        return ERRO_DADOS_INVALIDOS
+
+    valor = entrada.get().strip()
+    if not valor:
+        return ERRO_DADOS_INVALIDOS
+
+    regras = obter_regras_nome_interface(estado_interface)
+    regra = {
+        "valor": valor,
+        "modo": obter_modo_regra_nome_interface(estado_interface),
+    }
+    if regra not in regras:
+        regras.append(regra)
+
+    entrada.delete(0, tk.END)
+    atualizar_lista_regras_nome(estado_interface, regras)
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    return OK
+
+
+def remover_regra_nome_interface(estado_interface):
+    """Remove regra de nome selecionada."""
+    lista = estado_interface.get("lista_regras_nome")
+    if lista is None:
+        return ERRO_DADOS_INVALIDOS
+
+    selecao = lista.curselection()
+    if not selecao:
+        return ERRO_DADOS_INVALIDOS
+
+    regras = obter_regras_nome_interface(estado_interface)
+    indice = selecao[0]
+    if 0 <= indice < len(regras):
+        regras.pop(indice)
+
+    atualizar_lista_regras_nome(estado_interface, regras)
+    salvar_tipo_selecionado_em_memoria(estado_interface)
+    return OK
+
+
 def remover_item_lista(lista):
     """Remove o item selecionado de uma listbox."""
     selecao = lista.curselection()
@@ -965,6 +1087,70 @@ def atualizar_lista_destinos_tipo(estado_interface):
     for destino in tipo.get("destinos", []):
         lista.insert(tk.END, destino.get("caminho", "") + " | " + destino.get("operacao", "copiar"))
     return OK
+
+
+def atualizar_lista_regras_nome(estado_interface, regras):
+    """Atualiza lista visual de regras por nome."""
+    regras = normalizar_regras_nome_interface(regras)
+    estado_interface["regras_nome"] = regras
+    lista = estado_interface.get("lista_regras_nome")
+    if lista is None:
+        return ERRO_DADOS_INVALIDOS
+
+    lista.delete(0, tk.END)
+    for regra in regras:
+        lista.insert(tk.END, formatar_regra_nome_interface(regra))
+    return OK
+
+
+def obter_regras_nome_interface(estado_interface):
+    """Retorna copia das regras de nome em memoria na interface."""
+    return normalizar_regras_nome_interface(estado_interface.get("regras_nome", []))
+
+
+def normalizar_regras_nome_interface(regras):
+    """Normaliza regras de nome para persistencia."""
+    if not isinstance(regras, list):
+        return []
+
+    normalizadas = []
+    for regra in regras:
+        if not isinstance(regra, dict):
+            continue
+        valor = regra.get("valor", "")
+        if not isinstance(valor, str) or not valor.strip():
+            continue
+        modo = regra.get("modo", "contem")
+        if modo not in ("contem", "exato"):
+            modo = "contem"
+        normalizadas.append({"valor": valor.strip(), "modo": modo})
+    return normalizadas
+
+
+def obter_regras_nome_das_restricoes(restricoes):
+    """Extrai regras de nome, migrando o campo legado nome_contem."""
+    regras = normalizar_regras_nome_interface(restricoes.get("regras_nome", []))
+    if regras:
+        return regras
+
+    nome_contem = restricoes.get("nome_contem", "")
+    if isinstance(nome_contem, str) and nome_contem.strip():
+        return [{"valor": nome_contem.strip(), "modo": "contem"}]
+    return []
+
+
+def obter_modo_regra_nome_interface(estado_interface):
+    """Retorna o modo selecionado para nova regra de nome."""
+    modo = estado_interface.get("modo_regra_nome_var")
+    if modo is not None and modo.get() == "Nome completo":
+        return "exato"
+    return "contem"
+
+
+def formatar_regra_nome_interface(regra):
+    """Formata regra de nome para a listbox."""
+    rotulo = "Nome completo" if regra.get("modo") == "exato" else "Contem"
+    return rotulo + ": " + regra.get("valor", "")
 
 
 def selecionar_destino_tipo_interface(estado_interface):
@@ -1112,7 +1298,8 @@ def criar_restricoes_da_interface(estado_interface):
     data_max = converter_data_opcional(estado_interface["entrada_data_max"].get())
     return {
         "extensoes_permitidas": obter_extensoes_marcadas(estado_interface),
-        "nome_contem": estado_interface["entrada_nome_contem"].get().strip(),
+        "nome_contem": "",
+        "regras_nome": obter_regras_nome_interface(estado_interface),
         "tamanho_min": 0 if tamanho_min == "invalido" else tamanho_min,
         "tamanho_max": None if tamanho_max == "invalido" else tamanho_max,
         "data_modificacao_min": None if data_min == "invalido" else data_min,
@@ -1127,7 +1314,7 @@ def preencher_formulario_com_tipo(estado_interface, tipo):
     preencher_entry(estado_interface["entrada_tipo_nome"], tipo.get("nome", ""))
     restricoes = tipo.get("restricoes", {})
     atualizar_checkboxes_extensoes(estado_interface, restricoes.get("extensoes_permitidas", []))
-    preencher_entry(estado_interface["entrada_nome_contem"], restricoes.get("nome_contem", ""))
+    atualizar_lista_regras_nome(estado_interface, obter_regras_nome_das_restricoes(restricoes))
     preencher_entry(estado_interface["entrada_tamanho_min"], str(restricoes.get("tamanho_min", 0)))
     tamanho_max = restricoes.get("tamanho_max")
     preencher_entry(estado_interface["entrada_tamanho_max"], "" if tamanho_max is None else str(tamanho_max))
@@ -1141,7 +1328,7 @@ def limpar_area_tipo_destino(estado_interface):
     """Limpa campos de tipo e destinos."""
     preencher_entry(estado_interface["entrada_tipo_nome"], "")
     atualizar_checkboxes_extensoes(estado_interface, [])
-    preencher_entry(estado_interface["entrada_nome_contem"], "")
+    atualizar_lista_regras_nome(estado_interface, [])
     preencher_entry(estado_interface["entrada_tamanho_min"], "")
     preencher_entry(estado_interface["entrada_tamanho_max"], "")
     preencher_entry(estado_interface["entrada_data_min"], "")
@@ -1268,8 +1455,8 @@ def mostrar_historico_interface(estado_interface):
 
     janela = ctk.CTkToplevel(estado_interface["janela"])
     janela.title("Historico do perfil")
-    janela.geometry("860x480")
-    janela.minsize(740, 380)
+    janela.geometry("980x560")
+    janela.minsize(820, 440)
     janela.configure(fg_color=COR_FUNDO)
     manter_janela_acima_da_principal(janela, estado_interface["janela"])
 
@@ -1282,8 +1469,8 @@ def mostrar_historico_interface(estado_interface):
 
     corpo = ctk.CTkFrame(janela, fg_color="transparent")
     corpo.pack(fill="both", expand=True, padx=14, pady=(4, 10))
-    corpo.columnconfigure(0, weight=2)
-    corpo.columnconfigure(1, weight=1)
+    corpo.columnconfigure(0, weight=1)
+    corpo.columnconfigure(1, weight=2)
     corpo.rowconfigure(0, weight=1)
 
     lista = criar_listbox(corpo, 16)
@@ -1295,7 +1482,7 @@ def mostrar_historico_interface(estado_interface):
         border_color=COR_BORDA,
         border_width=1,
         text_color=COR_TEXTO,
-        font=FONTE_PADRAO,
+        font=ctk.CTkFont(family="Consolas", size=10),
     )
     detalhes.grid(row=0, column=1, sticky="nsew")
 
@@ -1335,29 +1522,17 @@ def mostrar_historico_interface(estado_interface):
             return
         registro = historico_atualizado[indice]
         erros = registro.get("erros", [])
-        conteudo = (
-            "Data: "
-            + registro.get("data_hora", "")
-            + "\nStatus: "
-            + registro.get("status", "")
-            + "\nProcessados: "
-            + str(registro.get("arquivos_processados", 0))
-            + "\nCopiados: "
-            + str(registro.get("arquivos_copiados", 0))
-            + "\nMovidos: "
-            + str(registro.get("arquivos_movidos", 0))
-            + "\nRecortados: "
-            + str(registro.get("arquivos_recortados", 0))
-            + "\nErros: "
-            + str(len(erros))
-        )
+        conteudo = formatar_resumo_historico(registro, erros)
         arquivos = registro.get("arquivos", [])
         if arquivos:
-            conteudo += "\n\nArquivos:\n"
-            for arquivo in arquivos:
-                conteudo += formatar_arquivo_historico(arquivo) + "\n"
+            conteudo += "\n\nArquivos processados\n"
+            conteudo += "--------------------\n"
+            for indice_arquivo, arquivo in enumerate(arquivos, start=1):
+                conteudo += formatar_arquivo_historico(arquivo, indice_arquivo) + "\n"
         if erros:
-            conteudo += "\n\nDetalhes dos erros:\n" + "\n".join(str(erro) for erro in erros)
+            conteudo += "\n\nErros\n"
+            conteudo += "-----\n"
+            conteudo += "\n".join(formatar_erro_historico(erro) for erro in erros)
 
         detalhes.configure(state="normal")
         detalhes.delete("1.0", tk.END)
@@ -1397,15 +1572,62 @@ def widgets_existem(*widgets):
         return False
 
 
-def formatar_arquivo_historico(arquivo):
+def formatar_resumo_historico(registro, erros):
+    """Formata o resumo de uma execucao do historico."""
+    linhas = [
+        "Resumo da execucao",
+        "------------------",
+        formatar_campo_historico("Data", registro.get("data_hora", "")),
+        formatar_campo_historico("Status", registro.get("status", "")),
+        "",
+        "Totais",
+        "------",
+        formatar_campo_historico("Processados", registro.get("arquivos_processados", 0)),
+        formatar_campo_historico("Copiados", registro.get("arquivos_copiados", 0)),
+        formatar_campo_historico("Movidos", registro.get("arquivos_movidos", 0)),
+        formatar_campo_historico("Recortados", registro.get("arquivos_recortados", 0)),
+        formatar_campo_historico("Erros", len(erros)),
+    ]
+    return "\n".join(linhas)
+
+
+def formatar_campo_historico(rotulo, valor):
+    """Formata um campo chave/valor alinhado para historico."""
+    return rotulo.ljust(12) + ": " + str(valor)
+
+
+def formatar_arquivo_historico(arquivo, indice):
     """Formata um arquivo processado para exibicao no historico."""
     nome = arquivo.get("nome", "")
     tipo = arquivo.get("tipo") or arquivo.get("extensao") or "(sem tipo)"
     tamanho = str(arquivo.get("tamanho", 0))
     operacao = arquivo.get("operacao", "")
     status = arquivo.get("status", "")
+    origem = arquivo.get("origem", "")
     destino = arquivo.get("destino", "")
-    return "- " + nome + " | " + tipo + " | " + tamanho + " bytes | " + operacao + " | " + status + " | " + destino
+    linhas = [
+        str(indice) + ". " + nome,
+        "   " + formatar_campo_historico("Tipo", tipo).strip(),
+        "   " + formatar_campo_historico("Tamanho", tamanho + " bytes").strip(),
+        "   " + formatar_campo_historico("Operacao", operacao).strip(),
+        "   " + formatar_campo_historico("Status", status).strip(),
+        "   " + formatar_campo_historico("Origem", origem).strip(),
+        "   " + formatar_campo_historico("Destino", destino).strip(),
+    ]
+    return "\n".join(linhas) + "\n"
+
+
+def formatar_erro_historico(erro):
+    """Formata erro registrado no historico."""
+    if not isinstance(erro, dict):
+        return "- " + str(erro)
+
+    linhas = [
+        "- " + str(erro.get("arquivo", "Arquivo nao informado")),
+        "  " + formatar_campo_historico("Destino", erro.get("destino", "")).strip(),
+        "  " + formatar_campo_historico("Codigo", erro.get("codigo", "")).strip(),
+    ]
+    return "\n".join(linhas)
 
 
 def visualizar_arquivos_interface(estado_interface):
@@ -1611,7 +1833,7 @@ def limpar_formulario(estado_interface):
     estado_interface["operacao_var"].set("copiar")
     estado_interface["ativo_var"].set(True)
     atualizar_checkboxes_extensoes(estado_interface, [])
-    preencher_entry(estado_interface["entrada_nome_contem"], "")
+    atualizar_lista_regras_nome(estado_interface, [])
     preencher_entry(estado_interface["entrada_tamanho_min"], "")
     preencher_entry(estado_interface["entrada_tamanho_max"], "")
     preencher_entry(estado_interface["entrada_data_min"], "")

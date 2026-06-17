@@ -100,7 +100,7 @@ Criterios de aceite:
 
 Resultado:
 
-- Implementado com listagem recursiva usando `os.walk`.
+- Implementado com listagem direta da pasta origem; subpastas sao ignoradas.
 - Origens invalidas retornam lista vazia.
 - Lista de origens invalida retorna lista vazia.
 - Testado em `tests/test_file_utils.py`.

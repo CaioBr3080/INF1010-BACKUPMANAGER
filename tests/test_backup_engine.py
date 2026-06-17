@@ -332,6 +332,40 @@ class TestBackupEngine(unittest.TestCase):
                     self.assertFalse((Path(destino_pdf) / "foto.png").exists())
                     self.assertFalse((Path(destino_img) / "relatorio.pdf").exists())
 
+    def test_executar_backup_configurado_ignora_arquivos_em_subpastas_da_origem(self):
+        with tempfile.TemporaryDirectory() as origem:
+            with tempfile.TemporaryDirectory() as destino:
+                subpasta = Path(origem) / "sub"
+                subpasta.mkdir()
+                arquivo_raiz = Path(origem) / "raiz.pdf"
+                arquivo_subpasta = subpasta / "interno.pdf"
+                arquivo_raiz.write_text("raiz", encoding="utf-8")
+                arquivo_subpasta.write_text("interno", encoding="utf-8")
+                perfil = {
+                    "id": "perfil_001",
+                    "origens_configuradas": [
+                        {
+                            "id": "origem_001",
+                            "caminho": origem,
+                            "tipos_arquivo": [
+                                {
+                                    "id": "tipo_pdf",
+                                    "nome": "PDFs",
+                                    "restricoes": {"extensoes_permitidas": [".pdf"]},
+                                    "destinos": [{"caminho": destino, "operacao": "copiar"}],
+                                }
+                            ],
+                        }
+                    ],
+                }
+
+                codigo, resultado = backup_engine.executar_backup(perfil)
+
+                self.assertEqual(codigo, OK)
+                self.assertEqual(resultado["arquivos_processados"], 1)
+                self.assertTrue((Path(destino) / "raiz.pdf").exists())
+                self.assertFalse((Path(destino) / "interno.pdf").exists())
+
     def test_executar_backup_configurado_recorta_para_destino_unico(self):
         with tempfile.TemporaryDirectory() as origem:
             with tempfile.TemporaryDirectory() as destino:

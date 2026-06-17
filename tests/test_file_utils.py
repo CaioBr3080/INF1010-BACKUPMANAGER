@@ -44,7 +44,7 @@ class TestFileUtils(unittest.TestCase):
             self.assertTrue(file_utils.verificar_permissao_escrita(pasta))
             self.assertFalse(file_utils.verificar_permissao_escrita(None))
 
-    def test_listar_arquivos_em_origem(self):
+    def test_listar_arquivos_em_origem_ignora_subpastas(self):
         with tempfile.TemporaryDirectory() as pasta:
             arquivo_1 = Path(pasta) / "a.txt"
             subpasta = Path(pasta) / "sub"
@@ -55,7 +55,7 @@ class TestFileUtils(unittest.TestCase):
 
             arquivos = file_utils.listar_arquivos_em_origem(pasta)
 
-            self.assertEqual(set(arquivos), {str(arquivo_1), str(arquivo_2)})
+            self.assertEqual(set(arquivos), {str(arquivo_1)})
 
     def test_listar_arquivos_em_origem_invalida(self):
         with tempfile.TemporaryDirectory() as pasta:
@@ -154,6 +154,35 @@ class TestFileUtils(unittest.TestCase):
         restricoes = {"nome_contem": "relatorio"}
 
         self.assertFalse(file_utils.atende_restricao_nome(arquivo, restricoes))
+
+    def test_filtrar_por_regras_nome_contem(self):
+        arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
+        restricoes = {"regras_nome": [{"valor": "_ab", "modo": "contem"}]}
+
+        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+
+    def test_filtrar_por_regras_nome_exato(self):
+        arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
+        restricoes = {"regras_nome": [{"valor": "ficha_ab_final.txt", "modo": "exato"}]}
+
+        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+
+    def test_filtrar_por_regras_nome_exato_rejeita_nome_parcial(self):
+        arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
+        restricoes = {"regras_nome": [{"valor": "_ab", "modo": "exato"}]}
+
+        self.assertFalse(file_utils.atende_restricao_nome(arquivo, restricoes))
+
+    def test_filtrar_por_regras_nome_usa_qualquer_regra(self):
+        arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
+        restricoes = {
+            "regras_nome": [
+                {"valor": "relatorio.pdf", "modo": "exato"},
+                {"valor": "_ab", "modo": "contem"},
+            ]
+        }
+
+        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_tamanho_minimo(self):
         arquivo = {"extensao": ".txt", "nome": "a.txt", "tamanho": 100}
