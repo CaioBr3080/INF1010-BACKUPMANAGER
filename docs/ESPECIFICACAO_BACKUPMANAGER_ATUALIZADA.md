@@ -150,6 +150,7 @@ Erros devem sempre ser lista.
 Execucao automatica simples:
 
 - verificacao por intervalo;
+- intervalo configuravel em segundos, minutos ou horas;
 - deteccao de alteracao de arquivos;
 - atualizacao de estado de arquivos em memoria;
 - monitoramento com `threading`;

@@ -1,4 +1,4 @@
-import unittest
+﻿import unittest
 import tempfile
 import time
 from datetime import datetime, timedelta
@@ -11,11 +11,11 @@ from backupmanager.return_codes import OK
 class TestScheduler(unittest.TestCase):
     def tearDown(self):
         scheduler.parar_monitoramento()
-        scheduler.INTERVALO_VERIFICACAO_SEGUNDOS = 1
+        scheduler._INTERVALO_VERIFICACAO_SEGUNDOS = 1
 
     def test_comparar_estado_arquivos(self):
-        self.assertTrue(scheduler.comparar_estado_arquivos({"a": 1}, {"a": 2}))
-        self.assertFalse(scheduler.comparar_estado_arquivos({"a": 1}, {"a": 1}))
+        self.assertTrue(scheduler._comparar_estado_arquivos({"a": 1}, {"a": 2}))
+        self.assertFalse(scheduler._comparar_estado_arquivos({"a": 1}, {"a": 1}))
 
     def test_deve_executar_por_intervalo_sem_ultima_execucao(self):
         perfil = {
@@ -27,7 +27,7 @@ class TestScheduler(unittest.TestCase):
             },
         }
 
-        self.assertTrue(scheduler.deve_executar_por_intervalo(perfil))
+        self.assertTrue(scheduler._deve_executar_por_intervalo(perfil))
 
     def test_deve_executar_por_intervalo_respeita_intervalo(self):
         recente = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -41,9 +41,34 @@ class TestScheduler(unittest.TestCase):
             },
         }
 
-        self.assertFalse(scheduler.deve_executar_por_intervalo(perfil))
+        self.assertFalse(scheduler._deve_executar_por_intervalo(perfil))
         perfil["agendamento"]["ultima_execucao"] = antiga
-        self.assertTrue(scheduler.deve_executar_por_intervalo(perfil))
+        self.assertTrue(scheduler._deve_executar_por_intervalo(perfil))
+
+    def test_deve_executar_por_intervalo_em_segundos(self):
+        recente = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        antiga = (datetime.now() - timedelta(seconds=20)).strftime("%Y-%m-%d %H:%M:%S")
+        perfil = {
+            "ativo": True,
+            "agendamento": {
+                "tipo": "intervalo",
+                "intervalo_valor": 10,
+                "intervalo_unidade": "segundos",
+                "ultima_execucao": recente,
+            },
+        }
+
+        self.assertFalse(scheduler._deve_executar_por_intervalo(perfil))
+        perfil["agendamento"]["ultima_execucao"] = antiga
+        self.assertTrue(scheduler._deve_executar_por_intervalo(perfil))
+
+    def test_obter_intervalo_em_segundos_converte_horas(self):
+        agendamento = {
+            "intervalo_valor": 2,
+            "intervalo_unidade": "horas",
+        }
+
+        self.assertEqual(scheduler._obter_intervalo_em_segundos(agendamento), 7200)
 
     def test_deve_executar_por_intervalo_ignora_perfil_inativo(self):
         perfil = {
@@ -55,7 +80,7 @@ class TestScheduler(unittest.TestCase):
             },
         }
 
-        self.assertFalse(scheduler.deve_executar_por_intervalo(perfil))
+        self.assertFalse(scheduler._deve_executar_por_intervalo(perfil))
 
     def test_obter_estado_atual_arquivos(self):
         with tempfile.TemporaryDirectory() as pasta:
@@ -63,10 +88,29 @@ class TestScheduler(unittest.TestCase):
             arquivo.write_text("conteudo", encoding="utf-8")
             perfil = {"origens": [pasta]}
 
-            estado = scheduler.obter_estado_atual_arquivos(perfil)
+            estado = scheduler._obter_estado_atual_arquivos(perfil)
 
             self.assertIn(str(arquivo), estado)
             self.assertEqual(estado[str(arquivo)]["tamanho"], len("conteudo"))
+
+    def test_obter_estado_atual_arquivos_usa_origens_configuradas_ativas(self):
+        with tempfile.TemporaryDirectory() as origem_ativa:
+            with tempfile.TemporaryDirectory() as origem_inativa:
+                arquivo_ativo = Path(origem_ativa) / "ativo.txt"
+                arquivo_inativo = Path(origem_inativa) / "inativo.txt"
+                arquivo_ativo.write_text("ativo", encoding="utf-8")
+                arquivo_inativo.write_text("inativo", encoding="utf-8")
+                perfil = {
+                    "origens_configuradas": [
+                        {"caminho": origem_ativa, "ativo": True},
+                        {"caminho": origem_inativa, "ativo": False},
+                    ]
+                }
+
+                estado = scheduler._obter_estado_atual_arquivos(perfil)
+
+                self.assertIn(str(arquivo_ativo), estado)
+                self.assertNotIn(str(arquivo_inativo), estado)
 
     def test_deve_executar_por_alteracao_detecta_mudanca(self):
         with tempfile.TemporaryDirectory() as pasta:
@@ -82,9 +126,9 @@ class TestScheduler(unittest.TestCase):
                 },
             }
 
-            self.assertTrue(scheduler.deve_executar_por_alteracao(perfil))
+            self.assertTrue(scheduler._deve_executar_por_alteracao(perfil))
             scheduler.atualizar_estado_arquivos(perfil)
-            self.assertFalse(scheduler.deve_executar_por_alteracao(perfil))
+            self.assertFalse(scheduler._deve_executar_por_alteracao(perfil))
 
     def test_atualizar_estado_arquivos(self):
         with tempfile.TemporaryDirectory() as pasta:
@@ -110,7 +154,7 @@ class TestScheduler(unittest.TestCase):
                 "ultima_execucao": None,
             },
         }
-        scheduler.INTERVALO_VERIFICACAO_SEGUNDOS = 0.01
+        scheduler._INTERVALO_VERIFICACAO_SEGUNDOS = 0.01
 
         codigo = scheduler.iniciar_monitoramento([perfil], chamadas.append)
         time.sleep(0.05)
@@ -127,3 +171,4 @@ class TestScheduler(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

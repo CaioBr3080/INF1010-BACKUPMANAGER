@@ -4,9 +4,26 @@ import os
 from pathlib import Path
 from datetime import datetime
 
+__all__ = [
+    "caminho_existe",
+    "caminho_e_diretorio",
+    "listar_arquivos_em_origem",
+    "listar_arquivos_de_origens",
+    "obter_extensao",
+    "obter_metadados_arquivo",
+    "arquivo_atende_restricoes",
+    "verificar_permissao_leitura",
+    "verificar_permissao_escrita",
+]
+
 
 def caminho_existe(caminho):
-    """Verifica se um caminho existe."""
+    """Verifica se um caminho existe no sistema de arquivos.
+
+    Retorna `True` apenas quando `caminho` e um valor aceito por `Path` e
+    aponta para algo existente. Entradas nulas, vazias ou invalidas retornam
+    `False` em vez de propagar excecoes.
+    """
     if caminho is None:
         return False
     try:
@@ -16,7 +33,12 @@ def caminho_existe(caminho):
 
 
 def caminho_e_diretorio(caminho):
-    """Verifica se um caminho existe e e diretorio."""
+    """Verifica se um caminho existe e representa uma pasta.
+
+    Usada pelo controller antes de aceitar origens/destinos escolhidos pelo
+    usuario. Retorna `False` para arquivos, caminhos inexistentes ou entradas
+    invalidas.
+    """
     if caminho is None:
         return False
     try:
@@ -26,7 +48,12 @@ def caminho_e_diretorio(caminho):
 
 
 def listar_arquivos_em_origem(origem):
-    """Lista apenas arquivos diretamente dentro de uma origem."""
+    """Lista apenas arquivos diretamente dentro de uma origem.
+
+    Nao percorre subpastas. Essa escolha define o comportamento do backup:
+    apenas arquivos no nivel imediato da origem sao candidatos. Retorna lista
+    de caminhos em texto ou lista vazia quando a origem e invalida.
+    """
     if not caminho_e_diretorio(origem):
         return []
 
@@ -41,7 +68,12 @@ def listar_arquivos_em_origem(origem):
 
 
 def listar_arquivos_de_origens(origens):
-    """Lista arquivos de varias origens."""
+    """Lista arquivos diretamente dentro de varias origens.
+
+    Recebe uma lista de pastas e concatena o resultado de
+    `listar_arquivos_em_origem` para cada item. Entradas invalidas sao
+    ignoradas pela funcao chamada.
+    """
     if not isinstance(origens, list):
         return []
 
@@ -52,7 +84,11 @@ def listar_arquivos_de_origens(origens):
 
 
 def obter_extensao(caminho):
-    """Retorna a extensao de um arquivo em minusculas."""
+    """Retorna a extensao de um arquivo em minusculas.
+
+    A extensao inclui o ponto inicial, como `.pdf`. Se o caminho nao possuir
+    extensao ou for invalido, retorna string vazia.
+    """
     if caminho is None:
         return ""
     try:
@@ -62,7 +98,12 @@ def obter_extensao(caminho):
 
 
 def obter_metadados_arquivo(caminho):
-    """Monta o dicionario de metadados de um arquivo."""
+    """Monta o dicionario de metadados de um arquivo real.
+
+    Quando `caminho` aponta para um arquivo, devolve dicionario com nome,
+    caminho, extensao, tamanho em bytes e timestamp de modificacao. Retorna
+    `None` para pastas, arquivos inexistentes ou erros de acesso.
+    """
     if caminho is None:
         return None
 
@@ -84,19 +125,24 @@ def obter_metadados_arquivo(caminho):
 
 
 def arquivo_atende_restricoes(arquivo, restricoes):
-    """Verifica se um arquivo passa por todas as restricoes."""
+    """Verifica se um arquivo atende a todas as restricoes configuradas.
+
+    Aplica filtros de extensao, nome, tamanho e data de modificacao sobre um
+    dicionario de metadados. Retorna `True` somente quando todos os filtros
+    ativos aceitam o arquivo. Dados invalidos retornam `False`.
+    """
     if not isinstance(arquivo, dict) or not isinstance(restricoes, dict):
         return False
 
     return (
-        atende_restricao_extensao(arquivo, restricoes)
-        and atende_restricao_nome(arquivo, restricoes)
-        and atende_restricao_tamanho(arquivo, restricoes)
-        and atende_restricao_data_modificacao(arquivo, restricoes)
+        _atende_restricao_extensao(arquivo, restricoes)
+        and _atende_restricao_nome(arquivo, restricoes)
+        and _atende_restricao_tamanho(arquivo, restricoes)
+        and _atende_restricao_data_modificacao(arquivo, restricoes)
     )
 
 
-def atende_restricao_extensao(arquivo, restricoes):
+def _atende_restricao_extensao(arquivo, restricoes):
     """Verifica filtro por extensao."""
     extensoes = restricoes.get("extensoes_permitidas", [])
     if not extensoes:
@@ -122,16 +168,16 @@ def atende_restricao_extensao(arquivo, restricoes):
     return extensao_arquivo.strip().lower() in extensoes_normalizadas
 
 
-def atende_restricao_nome(arquivo, restricoes):
+def _atende_restricao_nome(arquivo, restricoes):
     """Verifica filtros por nome do arquivo."""
     nome = arquivo.get("nome", "")
     if not isinstance(nome, str):
         return False
 
-    regras = normalizar_regras_nome(restricoes)
+    regras = _normalizar_regras_nome(restricoes)
     if regras:
         for regra in regras:
-            if nome_atende_regra(nome, regra):
+            if _nome_atende_regra(nome, regra):
                 return True
         return False
 
@@ -143,7 +189,7 @@ def atende_restricao_nome(arquivo, restricoes):
     return trecho.strip().lower() in nome.lower()
 
 
-def normalizar_regras_nome(restricoes):
+def _normalizar_regras_nome(restricoes):
     """Normaliza regras novas de nome, ignorando entradas invalidas."""
     regras = restricoes.get("regras_nome", [])
     if not isinstance(regras, list):
@@ -163,7 +209,7 @@ def normalizar_regras_nome(restricoes):
     return normalizadas
 
 
-def nome_atende_regra(nome, regra):
+def _nome_atende_regra(nome, regra):
     """Indica se o nome atende uma regra normalizada."""
     nome_normalizado = nome.strip().lower()
     valor = regra.get("valor", "").strip().lower()
@@ -174,7 +220,7 @@ def nome_atende_regra(nome, regra):
     return valor in nome_normalizado
 
 
-def atende_restricao_tamanho(arquivo, restricoes):
+def _atende_restricao_tamanho(arquivo, restricoes):
     """Verifica filtros por tamanho minimo e maximo."""
     tamanho = arquivo.get("tamanho", 0)
     tamanho_min = restricoes.get("tamanho_min", 0) or 0
@@ -192,16 +238,16 @@ def atende_restricao_tamanho(arquivo, restricoes):
     return True
 
 
-def atende_restricao_data_modificacao(arquivo, restricoes):
+def _atende_restricao_data_modificacao(arquivo, restricoes):
     """Verifica filtros por data de modificacao."""
     data_arquivo = arquivo.get("data_modificacao")
     if not isinstance(data_arquivo, (int, float)):
         return False
 
-    data_min = converter_data_restricao_para_timestamp(
+    data_min = _converter_data_restricao_para_timestamp(
         restricoes.get("data_modificacao_min")
     )
-    data_max = converter_data_restricao_para_timestamp(
+    data_max = _converter_data_restricao_para_timestamp(
         restricoes.get("data_modificacao_max")
     )
 
@@ -212,7 +258,7 @@ def atende_restricao_data_modificacao(arquivo, restricoes):
     return True
 
 
-def converter_data_restricao_para_timestamp(valor):
+def _converter_data_restricao_para_timestamp(valor):
     """Converte data de restricao em timestamp ou None quando vazia."""
     if valor is None:
         return None
@@ -232,7 +278,11 @@ def converter_data_restricao_para_timestamp(valor):
 
 
 def verificar_permissao_leitura(caminho):
-    """Verifica permissao de leitura."""
+    """Verifica permissao de leitura em um caminho.
+
+    Retorna `True` quando o sistema operacional informa acesso de leitura.
+    Entradas invalidas ou erros de sistema retornam `False`.
+    """
     if caminho is None:
         return False
     try:
@@ -242,7 +292,11 @@ def verificar_permissao_leitura(caminho):
 
 
 def verificar_permissao_escrita(caminho):
-    """Verifica permissao de escrita."""
+    """Verifica permissao de escrita em um caminho.
+
+    Usada para validar destinos antes de operacoes de arquivo. Retorna `False`
+    para entradas invalidas ou quando o sistema operacional nega escrita.
+    """
     if caminho is None:
         return False
     try:

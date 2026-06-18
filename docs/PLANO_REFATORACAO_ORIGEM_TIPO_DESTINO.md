@@ -75,6 +75,7 @@ Na implementacao inicial, se um tipo tiver qualquer destino com `mover` ou `reco
 - `backup_engine.py` executa o novo fluxo por origem, tipo e destino.
 - `backup_engine.py` valida conflito de `mover`/`recortar` para multiplos destinos.
 - `controller.py` aceita salvar `origens_configuradas`.
+- `controller.py` migra automaticamente perfis legados ao carregar os dados.
 - `controller.py` lista arquivos do perfil configurado com `tipos_incluidos`.
 - `interface.py` ja expõe `recortar` na operacao legada.
 - `interface.py` possui uma primeira tela operacional em tres colunas:
@@ -99,7 +100,7 @@ A interface ja permite:
 
 1. Melhorar exibicao visual dos destinos para separar caminho e operacao em colunas.
 2. Adicionar edicao da operacao de um destino ja cadastrado sem precisar remover e adicionar novamente.
-3. Criar migracao assistida para converter perfis antigos para `origens_configuradas`.
+3. Criar uma tela de revisao de migracao, caso seja necessario inspecionar perfis antigos antes de salvar.
 4. Melhorar mensagens de erro por origem/tipo/destino especifico.
 5. Adicionar testes de interface em nivel de funcoes puras quando a estrutura estabilizar.
 

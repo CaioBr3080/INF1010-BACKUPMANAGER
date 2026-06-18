@@ -1,5 +1,26 @@
 """Codigos de retorno padronizados do BackupManager."""
 
+__all__ = [
+    "OK",
+    "ERRO_PERFIL_NAO_ENCONTRADO",
+    "ERRO_NOME_INVALIDO",
+    "ERRO_ORIGEM_INVALIDA",
+    "ERRO_DESTINO_INVALIDO",
+    "ERRO_SEM_PERMISSAO",
+    "ERRO_ARQUIVO_NAO_ENCONTRADO",
+    "ERRO_RESTRICAO_INVALIDA",
+    "ERRO_OPERACAO_INVALIDA",
+    "ERRO_AGENDAMENTO_INVALIDO",
+    "ERRO_FALHA_AO_COPIAR",
+    "ERRO_FALHA_AO_MOVER",
+    "ERRO_JSON_CORROMPIDO",
+    "ERRO_BACKUP_SEM_ARQUIVOS",
+    "ERRO_DESTINO_SEM_ESPACO",
+    "ERRO_PERFIL_INATIVO",
+    "ERRO_DADOS_INVALIDOS",
+    "obter_mensagem",
+]
+
 OK = 0
 
 ERRO_PERFIL_NAO_ENCONTRADO = 1
@@ -19,7 +40,7 @@ ERRO_DESTINO_SEM_ESPACO = 14
 ERRO_PERFIL_INATIVO = 15
 ERRO_DADOS_INVALIDOS = 16
 
-MENSAGENS = {
+_MENSAGENS = {
     OK: "Operacao realizada com sucesso.",
     ERRO_PERFIL_NAO_ENCONTRADO: "Perfil nao encontrado.",
     ERRO_NOME_INVALIDO: "Nome de perfil invalido.",
@@ -41,6 +62,10 @@ MENSAGENS = {
 
 
 def obter_mensagem(codigo):
-    """Retorna a mensagem associada a um codigo de retorno."""
-    return MENSAGENS.get(codigo, "Codigo de retorno desconhecido.")
+    """Retorna a mensagem de usuario associada a um codigo de retorno.
 
+    Recebe um inteiro padronizado pelos modulos da aplicacao e devolve texto
+    legivel para interface/logs. Codigos desconhecidos retornam mensagem
+    generica, sem levantar excecao.
+    """
+    return _MENSAGENS.get(codigo, "Codigo de retorno desconhecido.")

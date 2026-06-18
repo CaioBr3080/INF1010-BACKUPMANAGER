@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backupmanager import backup_engine
+from backupmanager import backup_engine, backup_result, backup_validation
 from backupmanager.return_codes import (
     OK,
     ERRO_ARQUIVO_NAO_ENCONTRADO,
@@ -16,7 +16,7 @@ from backupmanager.return_codes import (
 
 class TestBackupEngine(unittest.TestCase):
     def test_montar_resultado_backup(self):
-        resultado = backup_engine.montar_resultado_backup("perfil_001")
+        resultado = backup_result.montar_resultado_backup("perfil_001")
 
         self.assertEqual(resultado["perfil_id"], "perfil_001")
         self.assertEqual(resultado["arquivos_processados"], 0)
@@ -40,11 +40,11 @@ class TestBackupEngine(unittest.TestCase):
             "operacao": "copiar",
         }
 
-        self.assertEqual(backup_engine.validar_perfil_para_backup(perfil), OK)
+        self.assertEqual(backup_validation.validar_perfil_para_backup(perfil), OK)
 
     def test_validar_perfil_para_backup_rejeita_dados_invalidos(self):
         self.assertEqual(
-            backup_engine.validar_perfil_para_backup(None),
+            backup_validation.validar_perfil_para_backup(None),
             ERRO_DADOS_INVALIDOS,
         )
 
@@ -57,7 +57,7 @@ class TestBackupEngine(unittest.TestCase):
         }
 
         self.assertEqual(
-            backup_engine.validar_perfil_para_backup(perfil),
+            backup_validation.validar_perfil_para_backup(perfil),
             ERRO_ORIGEM_INVALIDA,
         )
 
@@ -70,7 +70,7 @@ class TestBackupEngine(unittest.TestCase):
         }
 
         self.assertEqual(
-            backup_engine.validar_perfil_para_backup(perfil),
+            backup_validation.validar_perfil_para_backup(perfil),
             ERRO_DESTINO_INVALIDO,
         )
 
@@ -83,7 +83,7 @@ class TestBackupEngine(unittest.TestCase):
         }
 
         self.assertEqual(
-            backup_engine.validar_perfil_para_backup(perfil),
+            backup_validation.validar_perfil_para_backup(perfil),
             ERRO_OPERACAO_INVALIDA,
         )
 
@@ -103,27 +103,27 @@ class TestBackupEngine(unittest.TestCase):
     def test_gerar_caminho_destino_com_nome(self):
         arquivo = {"nome": "relatorio.txt", "caminho": "C:/origem/relatorio.txt"}
 
-        caminho = backup_engine.gerar_caminho_destino(arquivo, "D:/backup")
+        caminho = backup_engine._gerar_caminho_destino(arquivo, "D:/backup")
 
         self.assertEqual(caminho, str(Path("D:/backup") / "relatorio.txt"))
 
     def test_gerar_caminho_destino_com_caminho_sem_nome(self):
         arquivo = {"caminho": "C:/origem/relatorio.txt"}
 
-        caminho = backup_engine.gerar_caminho_destino(arquivo, "D:/backup")
+        caminho = backup_engine._gerar_caminho_destino(arquivo, "D:/backup")
 
         self.assertEqual(caminho, str(Path("D:/backup") / "relatorio.txt"))
 
     def test_gerar_caminho_destino_rejeita_dados_invalidos(self):
-        self.assertIsNone(backup_engine.gerar_caminho_destino(None, "D:/backup"))
-        self.assertIsNone(backup_engine.gerar_caminho_destino({}, "D:/backup"))
-        self.assertIsNone(backup_engine.gerar_caminho_destino({"nome": "a.txt"}, ""))
+        self.assertIsNone(backup_engine._gerar_caminho_destino(None, "D:/backup"))
+        self.assertIsNone(backup_engine._gerar_caminho_destino({}, "D:/backup"))
+        self.assertIsNone(backup_engine._gerar_caminho_destino({"nome": "a.txt"}, ""))
 
     def test_criar_pasta_destino_se_necessario_cria_diretorio(self):
         with tempfile.TemporaryDirectory() as pasta:
             caminho_destino = Path(pasta) / "backup" / "subpasta" / "arquivo.txt"
 
-            codigo = backup_engine.criar_pasta_destino_se_necessario(caminho_destino)
+            codigo = backup_engine._criar_pasta_destino_se_necessario(caminho_destino)
 
             self.assertEqual(codigo, OK)
             self.assertTrue(caminho_destino.parent.is_dir())
@@ -132,18 +132,18 @@ class TestBackupEngine(unittest.TestCase):
         with tempfile.TemporaryDirectory() as pasta:
             caminho_destino = Path(pasta) / "arquivo.txt"
 
-            codigo = backup_engine.criar_pasta_destino_se_necessario(caminho_destino)
+            codigo = backup_engine._criar_pasta_destino_se_necessario(caminho_destino)
 
             self.assertEqual(codigo, OK)
             self.assertTrue(Path(pasta).is_dir())
 
     def test_criar_pasta_destino_se_necessario_rejeita_caminho_invalido(self):
         self.assertEqual(
-            backup_engine.criar_pasta_destino_se_necessario(None),
+            backup_engine._criar_pasta_destino_se_necessario(None),
             ERRO_DESTINO_INVALIDO,
         )
         self.assertEqual(
-            backup_engine.criar_pasta_destino_se_necessario(""),
+            backup_engine._criar_pasta_destino_se_necessario(""),
             ERRO_DESTINO_INVALIDO,
         )
 
@@ -421,7 +421,7 @@ class TestBackupEngine(unittest.TestCase):
             ],
         }
 
-        self.assertEqual(backup_engine.validar_perfil_para_backup(perfil), ERRO_OPERACAO_INVALIDA)
+        self.assertEqual(backup_validation.validar_perfil_para_backup(perfil), ERRO_OPERACAO_INVALIDA)
 
     def test_executar_backup_configurado_ignora_origem_inativa(self):
         with tempfile.TemporaryDirectory() as origem_ativa:
@@ -517,7 +517,7 @@ class TestBackupEngine(unittest.TestCase):
             ],
         }
 
-        self.assertEqual(backup_engine.validar_perfil_para_backup(perfil), OK)
+        self.assertEqual(backup_validation.validar_perfil_para_backup(perfil), OK)
 
 
 if __name__ == "__main__":

@@ -111,67 +111,67 @@ class TestFileUtils(unittest.TestCase):
         arquivo = {"extensao": ".py", "nome": "main.py", "tamanho": 10}
         restricoes = {"extensoes_permitidas": [".py"]}
 
-        self.assertTrue(file_utils.atende_restricao_extensao(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_extensao(arquivo, restricoes))
 
     def test_filtrar_por_extensao_aceita_lista_vazia(self):
         arquivo = {"extensao": ".zip", "nome": "backup.zip", "tamanho": 10}
         restricoes = {"extensoes_permitidas": []}
 
-        self.assertTrue(file_utils.atende_restricao_extensao(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_extensao(arquivo, restricoes))
 
     def test_filtrar_por_extensao_normaliza_ponto_e_maiusculas(self):
         arquivo = {"extensao": ".py", "nome": "main.py", "tamanho": 10}
         restricoes = {"extensoes_permitidas": ["PY"]}
 
-        self.assertTrue(file_utils.atende_restricao_extensao(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_extensao(arquivo, restricoes))
 
     def test_filtrar_por_extensao_rejeita_extensao_nao_permitida(self):
         arquivo = {"extensao": ".txt", "nome": "nota.txt", "tamanho": 10}
         restricoes = {"extensoes_permitidas": [".py"]}
 
-        self.assertFalse(file_utils.atende_restricao_extensao(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_extensao(arquivo, restricoes))
 
     def test_filtrar_por_nome(self):
         arquivo = {"extensao": ".txt", "nome": "relatorio_final.txt", "tamanho": 10}
         restricoes = {"nome_contem": "relatorio"}
 
-        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_nome_aceita_campo_vazio(self):
         arquivo = {"extensao": ".txt", "nome": "qualquer.txt", "tamanho": 10}
         restricoes = {"nome_contem": ""}
 
-        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_nome_ignora_maiusculas(self):
         arquivo = {"extensao": ".txt", "nome": "Relatorio_Final.txt", "tamanho": 10}
         restricoes = {"nome_contem": "relatorio"}
 
-        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_nome_rejeita_trecho_ausente(self):
         arquivo = {"extensao": ".txt", "nome": "notas.txt", "tamanho": 10}
         restricoes = {"nome_contem": "relatorio"}
 
-        self.assertFalse(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_regras_nome_contem(self):
         arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
         restricoes = {"regras_nome": [{"valor": "_ab", "modo": "contem"}]}
 
-        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_regras_nome_exato(self):
         arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
         restricoes = {"regras_nome": [{"valor": "ficha_ab_final.txt", "modo": "exato"}]}
 
-        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_regras_nome_exato_rejeita_nome_parcial(self):
         arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
         restricoes = {"regras_nome": [{"valor": "_ab", "modo": "exato"}]}
 
-        self.assertFalse(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_regras_nome_usa_qualquer_regra(self):
         arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
@@ -182,37 +182,37 @@ class TestFileUtils(unittest.TestCase):
             ]
         }
 
-        self.assertTrue(file_utils.atende_restricao_nome(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_tamanho_minimo(self):
         arquivo = {"extensao": ".txt", "nome": "a.txt", "tamanho": 100}
         restricoes = {"tamanho_min": 50, "tamanho_max": None}
 
-        self.assertTrue(file_utils.atende_restricao_tamanho(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_tamanho(arquivo, restricoes))
 
     def test_filtrar_por_tamanho_maximo(self):
         arquivo = {"extensao": ".txt", "nome": "a.txt", "tamanho": 100}
         restricoes = {"tamanho_min": 0, "tamanho_max": 150}
 
-        self.assertTrue(file_utils.atende_restricao_tamanho(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_tamanho(arquivo, restricoes))
 
     def test_filtrar_por_tamanho_rejeita_menor_que_minimo(self):
         arquivo = {"extensao": ".txt", "nome": "a.txt", "tamanho": 20}
         restricoes = {"tamanho_min": 50, "tamanho_max": None}
 
-        self.assertFalse(file_utils.atende_restricao_tamanho(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_tamanho(arquivo, restricoes))
 
     def test_filtrar_por_tamanho_rejeita_maior_que_maximo(self):
         arquivo = {"extensao": ".txt", "nome": "a.txt", "tamanho": 200}
         restricoes = {"tamanho_min": 0, "tamanho_max": 150}
 
-        self.assertFalse(file_utils.atende_restricao_tamanho(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_tamanho(arquivo, restricoes))
 
     def test_filtrar_por_data_sem_limites(self):
         arquivo = {"data_modificacao": datetime(2026, 5, 11, 14, 30, 0).timestamp()}
         restricoes = {"data_modificacao_min": None, "data_modificacao_max": None}
 
-        self.assertTrue(file_utils.atende_restricao_data_modificacao(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_data_modificacao(arquivo, restricoes))
 
     def test_filtrar_por_data_minima_e_maxima(self):
         arquivo = {"data_modificacao": datetime(2026, 5, 11, 14, 30, 0).timestamp()}
@@ -221,19 +221,19 @@ class TestFileUtils(unittest.TestCase):
             "data_modificacao_max": "2026-05-11 15:00:00",
         }
 
-        self.assertTrue(file_utils.atende_restricao_data_modificacao(arquivo, restricoes))
+        self.assertTrue(file_utils._atende_restricao_data_modificacao(arquivo, restricoes))
 
     def test_filtrar_por_data_rejeita_antes_da_minima(self):
         arquivo = {"data_modificacao": datetime(2026, 5, 11, 13, 0, 0).timestamp()}
         restricoes = {"data_modificacao_min": "2026-05-11 14:00:00"}
 
-        self.assertFalse(file_utils.atende_restricao_data_modificacao(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_data_modificacao(arquivo, restricoes))
 
     def test_filtrar_por_data_rejeita_depois_da_maxima(self):
         arquivo = {"data_modificacao": datetime(2026, 5, 11, 16, 0, 0).timestamp()}
         restricoes = {"data_modificacao_max": "2026-05-11 15:00:00"}
 
-        self.assertFalse(file_utils.atende_restricao_data_modificacao(arquivo, restricoes))
+        self.assertFalse(file_utils._atende_restricao_data_modificacao(arquivo, restricoes))
 
     def test_arquivo_atende_restricoes_combinadas(self):
         arquivo = {
