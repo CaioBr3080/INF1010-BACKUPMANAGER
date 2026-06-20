@@ -327,7 +327,8 @@ def _nome_atende_regra(nome, regra):
     if not valor:
         return True
     if regra.get("modo") == "exato":
-        return nome_normalizado == valor
+        nome_sem_extensao = Path(nome_normalizado).stem
+        return nome_normalizado == valor or nome_sem_extensao == valor
     return valor in nome_normalizado
 
 

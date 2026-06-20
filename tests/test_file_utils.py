@@ -176,6 +176,12 @@ def test_filtrar_por_regras_nome_exato():
 
     assert_true(file_utils._atende_restricao_nome(arquivo, restricoes))
 
+def test_filtrar_por_regras_nome_exato_aceita_nome_sem_extensao():
+    arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
+    restricoes = {"regras_nome": [{"valor": "ficha_ab_final", "modo": "exato"}]}
+
+    assert_true(file_utils._atende_restricao_nome(arquivo, restricoes))
+
 def test_filtrar_por_regras_nome_exato_rejeita_nome_parcial():
     arquivo = {"extensao": ".txt", "nome": "ficha_ab_final.txt", "tamanho": 10}
     restricoes = {"regras_nome": [{"valor": "_ab", "modo": "exato"}]}

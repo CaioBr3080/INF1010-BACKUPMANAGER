@@ -2,7 +2,7 @@
 
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 
 import customtkinter as ctk
 
@@ -112,6 +112,23 @@ def _criar_coluna_tipos(container, estado_interface):
     estado_interface["lista_tipos"].bind(
         "<<ListboxSelect>>",
         lambda evento: _selecionar_tipo_arquivo_interface(estado_interface),
+    )
+    estado_interface["lista_tipos"].bind(
+        "<Delete>",
+        lambda evento: _remover_tipo_arquivo_interface(estado_interface),
+    )
+    menu_tipos = tk.Menu(estado_interface["lista_tipos"], tearoff=0)
+    menu_tipos.add_command(label="Renomear", command=lambda: _renomear_tipo_arquivo_interface(estado_interface))
+    menu_tipos.add_command(label="Excluir", command=lambda: _remover_tipo_arquivo_interface(estado_interface))
+    menu_tipos.add_separator()
+    menu_tipos.add_command(label="Ativar/Desativar", command=lambda: _alternar_tipo_ativo_interface(estado_interface))
+    estado_interface["lista_tipos"].bind(
+        "<Button-3>",
+        lambda evento: _mostrar_menu_tipos_interface(evento, estado_interface, menu_tipos),
+    )
+    estado_interface["lista_tipos"].bind(
+        "<Button-2>",
+        lambda evento: _mostrar_menu_tipos_interface(evento, estado_interface, menu_tipos),
     )
     linha_tipos = ctk.CTkFrame(coluna_tipos, fg_color="transparent")
     linha_tipos.grid(row=3, column=0, sticky="ew")
@@ -234,14 +251,16 @@ def _adicionar_destino_interface(estado_interface):
 
 def _adicionar_tipo_arquivo_interface(estado_interface):
     """Adiciona tipo de arquivo a origem selecionada."""
-    salvar_tipo_selecionado_em_memoria(estado_interface)
     origem = _obter_origem_selecionada(estado_interface)
     if origem is None:
         messagebox.showwarning("BackupManager", "Selecione uma origem.")
         return ERRO_DADOS_INVALIDOS
 
-    tipo = perfil_manager.criar_tipo_arquivo("Novo tipo", criar_restricoes_da_interface(estado_interface), [])
+    nome_tipo = estado_interface["entrada_tipo_nome"].get().strip() or "Novo tipo"
+    tipo = perfil_manager.criar_tipo_arquivo(nome_tipo, criar_restricoes_da_interface(estado_interface), [])
     perfil_manager.adicionar_tipo_origem(origem, tipo)
+    estado_interface["tipo_selecionado_indice"] = None
+    estado_interface["destino_selecionado_indice"] = None
     _atualizar_lista_tipos_origem(estado_interface)
     _selecionar_tipo_por_indice(estado_interface, len(perfil_manager.obter_tipos_origem(origem)) - 1)
     return OK
@@ -277,6 +296,55 @@ def _remover_tipo_arquivo_interface(estado_interface):
     estado_interface["destino_selecionado_indice"] = None
     _atualizar_lista_tipos_origem(estado_interface)
     limpar_area_tipo_destino(estado_interface)
+    return OK
+
+
+def _renomear_tipo_arquivo_interface(estado_interface):
+    """Renomeia o tipo selecionado por dialogo de texto."""
+    tipo = _obter_tipo_selecionado(estado_interface)
+    if tipo is None:
+        return ERRO_DADOS_INVALIDOS
+
+    nome_atual = perfil_manager.obter_nome_tipo(tipo)
+    novo_nome = simpledialog.askstring(
+        "Renomear tipo",
+        "Novo nome do tipo:",
+        initialvalue=nome_atual,
+        parent=estado_interface.get("janela"),
+    )
+    if novo_nome is None:
+        return OK
+
+    novo_nome = novo_nome.strip()
+    if not novo_nome:
+        messagebox.showwarning("BackupManager", "Informe um nome para o tipo.")
+        return ERRO_DADOS_INVALIDOS
+
+    perfil_manager.alterar_nome_tipo(tipo, novo_nome)
+    _preencher_nome_tipo_interface(estado_interface, novo_nome)
+    indice = estado_interface.get("tipo_selecionado_indice")
+    _atualizar_lista_tipos_origem(estado_interface)
+    _selecionar_tipo_por_indice(estado_interface, indice)
+    return OK
+
+
+def _mostrar_menu_tipos_interface(evento, estado_interface, menu):
+    """Mostra menu de contexto para o tipo clicado."""
+    lista = estado_interface["lista_tipos"]
+    indice = lista.nearest(evento.y)
+    if indice < 0 or indice >= lista.size():
+        return ERRO_DADOS_INVALIDOS
+
+    lista.focus_set()
+    lista.selection_clear(0, tk.END)
+    lista.selection_set(indice)
+    lista.activate(indice)
+    _selecionar_tipo_arquivo_interface(estado_interface)
+
+    try:
+        menu.tk_popup(evento.x_root, evento.y_root)
+    finally:
+        menu.grab_release()
     return OK
 
 
@@ -400,6 +468,7 @@ def _atualizar_lista_destinos_tipo(estado_interface):
     lista = estado_interface["lista_destinos"]
     lista.delete(0, tk.END)
     estado_interface["destino_selecionado_indice"] = None
+    estado_interface["operacao_var"].set("copiar")
     tipo = _obter_tipo_selecionado(estado_interface)
     if tipo is None:
         return ERRO_DADOS_INVALIDOS
@@ -496,6 +565,8 @@ def _selecionar_tipo_arquivo_interface(estado_interface):
         _obter_tipo_selecionado(estado_interface),
         lambda: _atualizar_lista_destinos_tipo(estado_interface),
     )
+    if estado_interface["lista_destinos"].size() > 0:
+        _selecionar_destino_por_indice(estado_interface, 0)
     return OK
 
 
@@ -544,6 +615,14 @@ def _obter_tipo_selecionado(estado_interface):
     if indice < 0 or indice >= len(tipos):
         return None
     return tipos[indice]
+
+
+def _preencher_nome_tipo_interface(estado_interface, nome):
+    """Substitui o texto do campo de nome do tipo."""
+    entrada = estado_interface["entrada_tipo_nome"]
+    entrada.delete(0, tk.END)
+    entrada.insert(0, nome)
+    return OK
 
 
 def salvar_tipo_selecionado_em_memoria(estado_interface):
