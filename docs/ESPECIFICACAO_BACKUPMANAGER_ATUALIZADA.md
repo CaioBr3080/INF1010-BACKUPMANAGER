@@ -1,180 +1,81 @@
-# Especificacao Atualizada - BackupManager
-
-Este documento consolida as regras atuais do projeto BackupManager para a disciplina INF1040.
+# Especificacao Atualizada do BackupManager
 
 ## Objetivo
 
-O BackupManager e uma aplicacao desktop local para gerenciar perfis de backup. Cada perfil define:
+Aplicacao desktop para executar backups manuais de arquivos locais com perfis
+configuraveis.
 
-- nome;
-- origens;
-- destinos;
-- operacao de copiar, mover ou recortar;
-- restricoes de arquivos;
-- origens configuradas com tipos de arquivo e destinos por tipo;
-- agendamento;
-- estado ativo/inativo;
-- estado de arquivos monitorados;
-- historico de execucoes.
+## Escopo
 
-## Regras Principais
+Inclui:
 
-- Usar Python.
-- Usar dicionarios para representar entidades.
-- Nao usar classes na logica principal.
-- Nao usar dataclasses.
-- Manter o projeto modular.
-- Usar codigos de retorno padronizados.
-- Usar testes automatizados com `unittest`.
-- Usar JSON para persistencia local.
-- Usar `customtkinter` apenas para aparencia da interface.
+- cadastro de perfis;
+- ativacao/desativacao de perfil;
+- origens configuradas;
+- tipos de arquivo por origem;
+- destinos por tipo;
+- operacao por destino: `copiar`, `mover` ou `recortar`;
+- filtros por extensao, nome, tamanho e data;
+- persistencia de perfis e configuracoes.
 
-## Persistencia em Memoria
+Nao inclui:
 
-A regra de persistencia e:
+- historico de execucoes;
+- scheduler;
+- monitoramento automatico;
+- execucao por intervalo;
+- backup ao detectar mudanca.
 
-```text
-JSON -> leitura inicial -> ESTADO em memoria -> alteracoes em memoria -> escrita final no encerramento
-```
-
-O `controller.py` mantem o estado central:
+## Modelo de Perfil
 
 ```python
-ESTADO = {
-    "perfis": [],
-    "historico": [],
-    "config": {},
-    "alterado": False
+{
+    "id": "perfil_001",
+    "nome": "Backup",
+    "ativo": True,
+    "origens_configuradas": [
+        {
+            "id": "origem_001",
+            "caminho": "C:/Origem",
+            "ativo": True,
+            "tipos_arquivo": [
+                {
+                    "id": "tipo_pdf",
+                    "nome": "PDFs",
+                    "ativo": True,
+                    "restricoes": {
+                        "extensoes_permitidas": [".pdf"],
+                        "regras_nome": [],
+                        "tamanho_min": 0,
+                        "tamanho_max": None,
+                        "data_modificacao_min": None,
+                        "data_modificacao_max": None
+                    },
+                    "destinos": [
+                        {
+                            "caminho": "D:/Backup",
+                            "operacao": "copiar"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }
 ```
 
-Quando houver alteracao em perfis, historico ou configuracao:
+## Persistencia
 
-```python
-ESTADO["alterado"] = True
-```
+- `data/perfis.json`: perfis do usuario.
+- `data/config.json`: configuracoes globais, como extensoes customizadas.
 
-`ESTADO["config"]` tambem guarda extensoes customizadas em `extensoes_disponiveis`. A interface mostra extensoes padrao e customizadas em checkboxes; o perfil salva somente as extensoes marcadas em `restricoes["extensoes_permitidas"]`.
+## Modulos Principais
 
-Os JSONs sao reescritos somente em:
-
-```python
-controller.finalizar_aplicacao()
-```
-
-## Arquitetura
-
-```text
-Usuario
-  ->
-interface.py
-  ->
-controller.py
-  |-- perfil_manager.py
-  |-- backup_engine.py
-  |     `-- file_utils.py
-  |-- scheduler.py
-  |     `-- file_utils.py
-  |-- history_manager.py
-  `-- storage.py
-        `-- data/*.json
-```
-
-Durante a execucao normal:
-
-```text
-interface.py -> controller.py -> modulos internos -> ESTADO em memoria
-```
-
-`storage.py` e usado principalmente na inicializacao e finalizacao.
-
-## Responsabilidade dos Modulos
-
-### `interface.py`
-
-Interface grafica com `tkinter` e `customtkinter`.
-
-Deve chamar o `controller.py` e nao executar regras complexas de backup diretamente.
-
-### `controller.py`
-
-Camada central da aplicacao.
-
-Responsavel por carregar dados, manter `ESTADO`, coordenar modulos internos, validar perfil inativo, validar caminhos de origem/destino, manter a lista de extensoes disponiveis e salvar JSON apenas no encerramento.
-
-### `perfil_manager.py`
-
-Criacao, consulta, edicao, ativacao, desativacao e exclusao de perfis em memoria.
-
-### `file_utils.py`
-
-Funcoes auxiliares de sistema de arquivos: listar arquivos, obter metadados, verificar caminhos e aplicar filtros por extensao, nome, tamanho e data.
-
-### `backup_engine.py`
-
-Execucao real do backup:
-
-- validacao minima de perfil;
-- geracao de caminho de destino;
-- criacao de pasta destino;
-- copia de arquivo;
-- movimentacao de arquivo;
-- backup para multiplos destinos;
-- registro de erros por arquivo no resultado.
-
-No modo `mover`, o arquivo e copiado para todos os destinos antes de ser removido da origem.
-
-O motor tambem aceita o modelo novo:
-
-```text
-Origem -> Tipo de Arquivo -> Destino -> Operacao
-```
-
-Nesse modelo, `mover` e `recortar` so podem ser usados por um destino para o mesmo tipo de arquivo. `copiar` pode ser usado em multiplos destinos.
-
-### `history_manager.py`
-
-Criacao, consulta, limpeza e resumo de registros de historico em memoria.
-
-Status padronizados:
-
-- `sucesso`;
-- `parcial`;
-- `erro`;
-- `sem_arquivos`.
-
-Erros devem sempre ser lista.
-
-### `scheduler.py`
-
-Execucao automatica simples:
-
-- verificacao por intervalo;
-- intervalo configuravel em segundos, minutos ou horas;
-- deteccao de alteracao de arquivos;
-- atualizacao de estado de arquivos em memoria;
-- monitoramento com `threading`;
-- respeito a perfil ativo/inativo.
-
-### `storage.py`
-
-Leitura e escrita de JSON.
-
-Tambem cria arquivos padrao quando necessario:
-
-- `data/perfis.json`;
-- `data/historico.json`;
-- `data/config.json`.
-
-### `return_codes.py`
-
-Codigos de retorno e mensagens padronizadas.
-
-## Validacao Recomendada
-
-Antes de concluir alteracoes:
-
-```bash
-python -m unittest discover -s tests
-python -m compileall backupmanager
-```
+- `controller.py`: fachada da aplicacao.
+- `perfil_manager.py`: TAD de perfis.
+- `backup_engine.py`: execucao de backup.
+- `backup_validation.py`: validacoes do fluxo.
+- `backup_result.py`: estrutura de resultado.
+- `file_utils.py`: arquivos e filtros.
+- `storage.py`: JSON.
+- `interface.py` e `ui_*`: interface grafica.

@@ -11,19 +11,14 @@ from backupmanager.return_codes import (
 
 
 class TestBackupValidation(unittest.TestCase):
-    def test_perfil_usa_fluxo_configurado(self):
-        self.assertTrue(backup_validation.perfil_usa_fluxo_configurado({"origens_configuradas": [{"caminho": "C:/"}]}))
-        self.assertFalse(backup_validation.perfil_usa_fluxo_configurado({"origens_configuradas": []}))
-        self.assertFalse(backup_validation.perfil_usa_fluxo_configurado({"origens": ["C:/"]}))
-
-    def test_validar_perfil_legado_valido(self):
+    def test_validar_perfil_rejeita_formato_antigo(self):
         perfil = {
             "origens": ["C:/Origem"],
             "destinos": ["D:/Backup"],
             "operacao": "copiar",
         }
 
-        self.assertEqual(backup_validation.validar_perfil_para_backup(perfil), OK)
+        self.assertEqual(backup_validation.validar_perfil_para_backup(perfil), ERRO_ORIGEM_INVALIDA)
 
     def test_validar_perfil_rejeita_dados_invalidos(self):
         self.assertEqual(backup_validation.validar_perfil_para_backup(None), ERRO_DADOS_INVALIDOS)

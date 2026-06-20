@@ -133,25 +133,25 @@ class TestFileUtils(unittest.TestCase):
 
     def test_filtrar_por_nome(self):
         arquivo = {"extensao": ".txt", "nome": "relatorio_final.txt", "tamanho": 10}
-        restricoes = {"nome_contem": "relatorio"}
+        restricoes = {"regras_nome": [{"valor": "relatorio", "modo": "contem"}]}
 
         self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
-    def test_filtrar_por_nome_aceita_campo_vazio(self):
+    def test_filtrar_por_nome_aceita_sem_regras(self):
         arquivo = {"extensao": ".txt", "nome": "qualquer.txt", "tamanho": 10}
-        restricoes = {"nome_contem": ""}
+        restricoes = {"regras_nome": []}
 
         self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_nome_ignora_maiusculas(self):
         arquivo = {"extensao": ".txt", "nome": "Relatorio_Final.txt", "tamanho": 10}
-        restricoes = {"nome_contem": "relatorio"}
+        restricoes = {"regras_nome": [{"valor": "relatorio", "modo": "contem"}]}
 
         self.assertTrue(file_utils._atende_restricao_nome(arquivo, restricoes))
 
     def test_filtrar_por_nome_rejeita_trecho_ausente(self):
         arquivo = {"extensao": ".txt", "nome": "notas.txt", "tamanho": 10}
-        restricoes = {"nome_contem": "relatorio"}
+        restricoes = {"regras_nome": [{"valor": "relatorio", "modo": "contem"}]}
 
         self.assertFalse(file_utils._atende_restricao_nome(arquivo, restricoes))
 
@@ -244,7 +244,7 @@ class TestFileUtils(unittest.TestCase):
         }
         restricoes = {
             "extensoes_permitidas": [".py"],
-            "nome_contem": "relatorio",
+            "regras_nome": [{"valor": "relatorio", "modo": "contem"}],
             "tamanho_min": 50,
             "tamanho_max": 150,
             "data_modificacao_min": "2026-05-11 14:00:00",
@@ -262,7 +262,7 @@ class TestFileUtils(unittest.TestCase):
         }
         restricoes = {
             "extensoes_permitidas": [".py"],
-            "nome_contem": "relatorio",
+            "regras_nome": [{"valor": "relatorio", "modo": "contem"}],
             "tamanho_min": 50,
             "tamanho_max": 150,
             "data_modificacao_min": None,
@@ -280,7 +280,7 @@ class TestFileUtils(unittest.TestCase):
         }
         restricoes = {
             "extensoes_permitidas": [],
-            "nome_contem": "",
+            "regras_nome": [],
             "tamanho_min": 0,
             "tamanho_max": None,
             "data_modificacao_min": None,
@@ -298,7 +298,7 @@ class TestFileUtils(unittest.TestCase):
         }
         restricoes = {
             "extensoes_permitidas": [],
-            "nome_contem": "",
+            "regras_nome": [],
             "tamanho_min": 0,
             "tamanho_max": None,
             "data_modificacao_min": None,

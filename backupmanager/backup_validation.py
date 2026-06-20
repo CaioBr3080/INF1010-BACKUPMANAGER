@@ -10,7 +10,6 @@ from backupmanager.return_codes import (
 
 __all__ = [
     "validar_perfil_para_backup",
-    "perfil_usa_fluxo_configurado",
     "validar_perfil_configurado_para_backup",
     "validar_destinos_do_tipo",
 ]
@@ -21,43 +20,14 @@ _OPERACOES_VALIDAS = ("copiar", "mover", "recortar")
 def validar_perfil_para_backup(perfil):
     """Valida o contrato minimo para executar backup.
 
-    Aceita perfis no modelo atual ou legado. Quando encontra
-    `origens_configuradas`, delega para a validacao do fluxo atual; caso
-    contrario, valida listas legadas de origem/destino e operacao global.
-    Retorna somente codigo de resultado.
+    Aceita somente o modelo atual `origens_configuradas`. Retorna
+    `ERRO_DADOS_INVALIDOS` quando a entrada nao e um perfil e delega a
+    validacao estrutural para `validar_perfil_configurado_para_backup`.
     """
     if not isinstance(perfil, dict):
         return ERRO_DADOS_INVALIDOS
 
-    if perfil_usa_fluxo_configurado(perfil):
-        return validar_perfil_configurado_para_backup(perfil)
-
-    origens = perfil.get("origens", [])
-    destinos = perfil.get("destinos", [])
-    operacao = perfil.get("operacao", "copiar")
-
-    if not isinstance(origens, list) or len(origens) == 0:
-        return ERRO_ORIGEM_INVALIDA
-    if not isinstance(destinos, list) or len(destinos) == 0:
-        return ERRO_DESTINO_INVALIDO
-    if operacao not in _OPERACOES_VALIDAS:
-        return ERRO_OPERACAO_INVALIDA
-
-    return OK
-
-
-def perfil_usa_fluxo_configurado(perfil):
-    """Indica se um perfil deve ser tratado pelo fluxo atual.
-
-    Retorna `True` apenas para dicionarios com `origens_configuradas` como
-    lista nao vazia. Essa funcao e usada como decisao de roteamento por
-    controller e motor de backup.
-    """
-    return (
-        isinstance(perfil, dict)
-        and isinstance(perfil.get("origens_configuradas"), list)
-        and len(perfil.get("origens_configuradas")) > 0
-    )
+    return validar_perfil_configurado_para_backup(perfil)
 
 
 def validar_perfil_configurado_para_backup(perfil):

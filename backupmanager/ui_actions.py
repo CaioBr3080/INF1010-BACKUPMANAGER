@@ -16,18 +16,12 @@ from backupmanager.ui_backup_flow import (
 from backupmanager.ui_converters import (
     converter_data_opcional,
     converter_inteiro_opcional,
-    converter_intervalo_para_minutos,
-    obter_intervalo_para_interface,
-    obter_unidade_intervalo_interface,
 )
-from backupmanager.ui_history import mostrar_historico_interface
 from backupmanager.ui_restrictions import (
     atualizar_checkboxes_extensoes,
     atualizar_lista_regras_nome,
     formulario_tipo_possui_valor_invalido,
     limpar_area_tipo_destino,
-    normalizar_tipo_agendamento,
-    obter_tipo_agendamento_interface,
 )
 from backupmanager.ui_theme import COR_VERDE, criar_botao
 
@@ -44,9 +38,8 @@ __all__ = [
 def criar_area_botoes(janela, estado_interface):
     """Cria os botoes globais do cabecalho da interface.
 
-    Registra no estado o botao de backup, conecta comandos para backup,
-    historico e saida, e retorna o frame criado. Nao executa nenhuma acao no
-    momento da criacao.
+    Registra no estado o botao de backup, conecta comandos para backup e saida,
+    e retorna o frame criado. Nao executa nenhuma acao no momento da criacao.
     """
     frame = ctk.CTkFrame(janela, fg_color="transparent")
     frame.grid(row=0, column=1, sticky="ne", padx=(12, 0), pady=(6, 0))
@@ -59,12 +52,6 @@ def criar_area_botoes(janela, estado_interface):
         largura=92,
     )
     estado_interface["botao_backup"].pack(side="left", padx=(0, 6))
-    criar_botao(
-        frame,
-        "Historico",
-        lambda: mostrar_historico_interface(estado_interface),
-        largura=92,
-    ).pack(side="left", padx=6)
     criar_botao(frame, "Sair", estado_interface["acao_fechar"], "#e5e7eb", "#111827", largura=76).pack(
         side="left", padx=(6, 0)
     )
@@ -127,14 +114,13 @@ def sincronizar_perfil_atual_interface(estado_interface, exibir_erros):
 def preencher_formulario_com_perfil(estado_interface, perfil):
     """Carrega os dados de um perfil nos widgets da interface.
 
-    Atualiza nome, ativo, origens configuradas, selecao inicial, restricoes e
-    agendamento. Tambem migra visualmente perfis antigos recebidos sem
-    `origens_configuradas`, preservando compatibilidade da tela.
+    Atualiza nome, ativo, origens configuradas, selecao inicial e restricoes
+    usando somente o modelo atual da aplicacao.
     """
     estado_interface["perfil_selecionado_id"] = perfil.get("id")
     _preencher_entry(estado_interface["entrada_nome"], perfil.get("nome", ""))
     estado_interface["ativo_var"].set(perfil.get("ativo", True))
-    estado_interface["operacao_var"].set(perfil.get("operacao", "copiar"))
+    estado_interface["operacao_var"].set("copiar")
 
     estado_interface["origens_configuradas"] = _montar_origens_configuradas_para_interface(perfil)
     estado_interface["origem_selecionada_indice"] = None
@@ -144,19 +130,14 @@ def preencher_formulario_com_perfil(estado_interface, perfil):
     if estado_interface["origens_configuradas"]:
         selecionar_origem_por_indice(estado_interface, 0)
 
-    agendamento = perfil.get("agendamento", {})
-    estado_interface["agendamento_tipo_var"].set(normalizar_tipo_agendamento(agendamento.get("tipo", "manual")))
-    intervalo, unidade = obter_intervalo_para_interface(agendamento)
-    estado_interface["intervalo_unidade_var"].set(unidade)
-    _preencher_entry(estado_interface["entrada_intervalo"], "" if intervalo is None else str(intervalo))
     return perfil
 
 
 def limpar_formulario(estado_interface):
     """Limpa todos os campos visuais ligados ao perfil selecionado.
 
-    Remove listas de origem/tipo/destino, filtros, agendamento e marcadores de
-    selecao do estado da interface. Nao altera o controller diretamente.
+    Remove listas de origem/tipo/destino, filtros e marcadores de selecao do
+    estado da interface. Nao altera o controller diretamente.
     """
     _preencher_entry(estado_interface["entrada_nome"], "")
     estado_interface["origens_configuradas"] = []
@@ -173,9 +154,6 @@ def limpar_formulario(estado_interface):
     _preencher_entry(estado_interface["entrada_tamanho_max"], "")
     _preencher_entry(estado_interface["entrada_data_min"], "")
     _preencher_entry(estado_interface["entrada_data_max"], "")
-    estado_interface["agendamento_tipo_var"].set("manual")
-    estado_interface["intervalo_unidade_var"].set("minutos")
-    _preencher_entry(estado_interface["entrada_intervalo"], "")
     return OK
 
 
@@ -264,14 +242,10 @@ def _obter_dados_formulario(estado_interface):
     if not perfil_id:
         return None
 
-    intervalo = converter_inteiro_opcional(estado_interface["entrada_intervalo"].get(), None)
-    intervalo_unidade = obter_unidade_intervalo_interface(estado_interface)
-    agendamento_tipo = obter_tipo_agendamento_interface(estado_interface)
     salvar_tipo_selecionado_em_memoria(estado_interface)
 
     if (
-        intervalo == "invalido"
-        or formulario_tipo_possui_valor_invalido(estado_interface)
+        formulario_tipo_possui_valor_invalido(estado_interface)
         or not estado_interface.get("origens_configuradas")
         or _existe_conflito_operacao_interface(estado_interface)
     ):
@@ -281,52 +255,16 @@ def _obter_dados_formulario(estado_interface):
         "id": perfil_id,
         "nome": estado_interface["entrada_nome"].get(),
         "origens_configuradas": estado_interface["origens_configuradas"],
-        "agendamento": {
-            "tipo": agendamento_tipo,
-            "intervalo_minutos": converter_intervalo_para_minutos(intervalo, intervalo_unidade),
-            "intervalo_valor": intervalo,
-            "intervalo_unidade": intervalo_unidade,
-            "executar_ao_detectar_mudanca": agendamento_tipo == "alteracao",
-            "ultima_execucao": None,
-        },
         "ativo": estado_interface["ativo_var"].get(),
     }
 
 
 def _montar_origens_configuradas_para_interface(perfil):
-    """Monta origens configuradas para a interface, migrando perfil legado quando preciso."""
+    """Copia as origens configuradas do perfil para uso seguro na interface."""
     origens_configuradas = perfil.get("origens_configuradas", [])
-    if isinstance(origens_configuradas, list) and origens_configuradas:
+    if isinstance(origens_configuradas, list):
         return _copiar_lista_dicionarios(origens_configuradas)
-
-    origens = perfil.get("origens", [])
-    if not isinstance(origens, list):
-        return []
-
-    destinos = []
-    for destino in perfil.get("destinos", []):
-        destinos.append({
-            "caminho": destino,
-            "operacao": perfil.get("operacao", "copiar"),
-        })
-
-    configuradas = []
-    for indice, origem in enumerate(origens):
-        configuradas.append({
-            "id": "origem_" + str(indice + 1),
-            "caminho": origem,
-            "ativo": True,
-            "tipos_arquivo": [
-                {
-                    "id": "tipo_1",
-                    "nome": "Todos os arquivos",
-                    "ativo": True,
-                    "restricoes": perfil.get("restricoes", {}),
-                    "destinos": _copiar_lista_dicionarios(destinos),
-                }
-            ],
-        })
-    return configuradas
+    return []
 
 
 def _copiar_lista_dicionarios(lista):
@@ -377,12 +315,8 @@ def _mostrar_erro_validacao_formulario(estado_interface):
 
     tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
     tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
-    intervalo = converter_inteiro_opcional(estado_interface["entrada_intervalo"].get(), None)
     if tamanho_min == "invalido" or tamanho_max == "invalido":
         messagebox.showerror("BackupManager", "Informe tamanhos validos usando numeros inteiros positivos.")
-        return ERRO_DADOS_INVALIDOS
-    if intervalo == "invalido":
-        messagebox.showerror("BackupManager", "Informe um intervalo valido em segundos, minutos ou horas.")
         return ERRO_DADOS_INVALIDOS
 
     data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())

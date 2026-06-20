@@ -17,7 +17,7 @@ def montar_resultado_backup(perfil_id):
 
     O dicionario retornado acompanha todo o ciclo da execucao e concentra
     status, contadores, registros de arquivos e erros. `perfil_id` e copiado
-    para permitir associar o resultado ao historico posteriormente.
+    para identificar qual perfil gerou o resultado.
     """
     return {
         "perfil_id": perfil_id,
@@ -52,8 +52,8 @@ def montar_registro_arquivo(arquivo, destino, operacao, codigo):
     """Monta o registro detalhado de um arquivo processado.
 
     Usa os metadados coletados em `arquivo`, registra destino, operacao,
-    status derivado do codigo de retorno e informacoes usadas pela janela de
-    historico. Aceita entrada parcialmente vazia para registrar falhas.
+    status derivado do codigo de retorno e informacoes uteis para mensagens
+    da interface. Aceita entrada parcialmente vazia para registrar falhas.
     """
     if not isinstance(arquivo, dict):
         arquivo = {}
@@ -74,8 +74,7 @@ def montar_registro_arquivo(arquivo, destino, operacao, codigo):
 def montar_erro_arquivo(arquivo, destino, codigo):
     """Monta o registro simples de erro associado a um arquivo.
 
-    O retorno contem nome do arquivo, destino envolvido e codigo de erro. Esse
-    formato e usado tanto pelo resultado de backup quanto pelo historico.
+    O retorno contem nome do arquivo, destino envolvido e codigo de erro.
     """
     nome = arquivo.get("nome", arquivo.get("caminho", "")) if isinstance(arquivo, dict) else ""
     return {

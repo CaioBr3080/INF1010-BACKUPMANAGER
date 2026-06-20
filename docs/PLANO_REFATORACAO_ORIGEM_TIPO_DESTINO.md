@@ -2,28 +2,20 @@
 
 ## Objetivo
 
-Reorganizar o BackupManager para que as regras de backup deixem de ser globais no perfil e passem a ser vinculadas a cada origem.
+Reorganizar o BackupManager para que as regras de backup deixem de ser globais
+no perfil e passem a ser vinculadas a cada origem e tipo de arquivo.
 
-Nova relacao principal:
+Relacao principal:
 
 ```text
 Origem -> Tipo de Arquivo -> Destino -> Operacao
 ```
 
-## Compatibilidade
+## Modelo Unico
 
-O modelo antigo continua aceito:
-
-```python
-{
-    "origens": [],
-    "destinos": [],
-    "operacao": "copiar",
-    "restricoes": {}
-}
-```
-
-O novo modelo usa `origens_configuradas`:
+O projeto agora aceita somente o modelo atual. Como a aplicacao nao foi
+distribuida em producao, a compatibilidade com o formato antigo foi removida
+para manter o codigo mais limpo.
 
 ```python
 {
@@ -31,13 +23,15 @@ O novo modelo usa `origens_configuradas`:
         {
             "id": "origem_001",
             "caminho": "C:/Documentos",
+            "ativo": True,
             "tipos_arquivo": [
                 {
                     "id": "tipo_pdf",
                     "nome": "PDFs",
+                    "ativo": True,
                     "restricoes": {
                         "extensoes_permitidas": [".pdf"],
-                        "nome_contem": "",
+                        "regras_nome": [],
                         "tamanho_min": 0,
                         "tamanho_max": None,
                         "data_modificacao_min": None,
@@ -62,33 +56,26 @@ O novo modelo usa `origens_configuradas`:
 - `mover`: so pode ser usado por um destino para o mesmo tipo.
 - `recortar`: so pode ser usado por um destino para o mesmo tipo.
 
-Na implementacao inicial, se um tipo tiver qualquer destino com `mover` ou `recortar`, ele nao pode ter outros destinos ao mesmo tempo.
+Se um tipo tiver qualquer destino com `mover` ou `recortar`, ele nao pode ter
+outros destinos ao mesmo tempo.
 
-## Ja Implementado
+## Implementado
 
-- Perfil novo passa a nascer com `origens_configuradas: []`.
-- `perfil_manager.py` possui factories para:
-  - `criar_origem_configurada`;
-  - `criar_tipo_arquivo`;
-  - `criar_destino_tipo`.
-- `backup_engine.py` detecta automaticamente se o perfil usa modelo novo ou legado.
-- `backup_engine.py` executa o novo fluxo por origem, tipo e destino.
-- `backup_engine.py` valida conflito de `mover`/`recortar` para multiplos destinos.
-- `controller.py` aceita salvar `origens_configuradas`.
-- `controller.py` migra automaticamente perfis legados ao carregar os dados.
-- `controller.py` lista arquivos do perfil configurado com `tipos_incluidos`.
-- `interface.py` ja expõe `recortar` na operacao legada.
-- `interface.py` possui uma primeira tela operacional em tres colunas:
-  - origens configuradas;
-  - tipos da origem selecionada;
-  - destinos do tipo selecionado com operacao.
-- Testes automatizados cobrem o novo fluxo.
+- Perfil novo nasce com `origens_configuradas: []`.
+- `perfil_manager.py` possui factories para origem, tipo e destino.
+- `backup_engine.py` executa somente o fluxo origem -> tipo -> destino.
+- `backup_validation.py` valida somente perfis no modelo atual.
+- `controller.py` salva e lista arquivos usando `origens_configuradas`.
+- `interface.py` edita origens, tipos, destinos e operacao por destino.
+- Regras de nome usam somente `regras_nome`.
+- A execucao automatica foi removida; o backup atual e manual.
 
 ## Interface Implementada
 
-A interface ja permite:
+A interface permite:
 
 - adicionar e remover origens;
+- ativar e desativar origens;
 - selecionar uma origem e ver seus tipos;
 - adicionar e remover tipos;
 - editar filtros do tipo selecionado;
@@ -96,19 +83,9 @@ A interface ja permite:
 - escolher operacao do destino: `copiar`, `mover` ou `recortar`;
 - bloquear configuracoes invalidas de `mover`/`recortar` com multiplos destinos.
 
-## Proximos Refinamentos de Interface
+## Proximos Refinamentos
 
 1. Melhorar exibicao visual dos destinos para separar caminho e operacao em colunas.
-2. Adicionar edicao da operacao de um destino ja cadastrado sem precisar remover e adicionar novamente.
-3. Criar uma tela de revisao de migracao, caso seja necessario inspecionar perfis antigos antes de salvar.
-4. Melhorar mensagens de erro por origem/tipo/destino especifico.
-5. Adicionar testes de interface em nivel de funcoes puras quando a estrutura estabilizar.
-
-## Estrategia Recomendada
-
-Implementar a interface em dois passos:
-
-1. Tela simples baseada no novo modelo, sem remover os campos legados ainda.
-2. Depois que o fluxo novo estiver validado, ocultar ou aposentar os campos legados.
-
-Isso reduz risco de perder compatibilidade com os perfis existentes em `data/perfis.json`.
+2. Adicionar edicao mais direta da operacao de um destino ja cadastrado.
+3. Melhorar mensagens de erro por origem/tipo/destino especifico.
+4. Adicionar testes de interface em nivel de funcoes puras quando a estrutura estabilizar.

@@ -25,10 +25,10 @@ __all__ = [
 def executar_backup(perfil):
     """Executa a rotina de backup de um perfil.
 
-    Valida o perfil, escolhe automaticamente entre fluxo atual
-    `origem -> tipo -> destino` e fluxo legado, filtra arquivos e consolida o
-    resultado da execucao. Retorna `(codigo, resultado)`, onde `resultado`
-    contem status, contadores, arquivos processados e erros.
+    Valida o perfil no modelo atual `origem -> tipo -> destino`, filtra
+    arquivos e consolida o resultado da execucao. Retorna `(codigo,
+    resultado)`, onde `resultado` contem status, contadores, arquivos
+    processados e erros.
     """
     perfil_id = perfil.get("id") if isinstance(perfil, dict) else None
     resultado = backup_result.montar_resultado_backup(perfil_id)
@@ -39,25 +39,7 @@ def executar_backup(perfil):
         resultado["erros"].append("Perfil invalido para backup.")
         return codigo_validacao, resultado
 
-    if backup_validation.perfil_usa_fluxo_configurado(perfil):
-        return _executar_backup_configurado(perfil)
-
-    caminhos = file_utils.listar_arquivos_de_origens(perfil.get("origens", []))
-    restricoes = perfil.get("restricoes", {})
-    arquivos_validos = []
-
-    for caminho in caminhos:
-        arquivo = file_utils.obter_metadados_arquivo(caminho)
-        if arquivo is None:
-            continue
-        if file_utils.arquivo_atende_restricoes(arquivo, restricoes):
-            arquivos_validos.append(arquivo)
-
-    if not arquivos_validos:
-        resultado["status"] = "sem_arquivos"
-        return ERRO_BACKUP_SEM_ARQUIVOS, resultado
-
-    return _executar_backup_multiplos_destinos(perfil, arquivos_validos)
+    return _executar_backup_configurado(perfil)
 
 
 def _executar_backup_configurado(perfil):
@@ -117,41 +99,6 @@ def _filtrar_arquivos_por_tipo(caminhos, tipo):
             arquivo["tipo_nome"] = tipo.get("nome", "")
             arquivos.append(arquivo)
     return arquivos
-
-
-def _executar_backup_multiplos_destinos(perfil, arquivos_validos):
-    """Processa arquivos validos para todos os destinos do perfil."""
-    resultado = backup_result.montar_resultado_backup(perfil.get("id") if isinstance(perfil, dict) else None)
-    if not isinstance(perfil, dict) or not isinstance(arquivos_validos, list):
-        resultado["status"] = "erro"
-        resultado["erros"].append("Dados invalidos para backup.")
-        return ERRO_DADOS_INVALIDOS, resultado
-
-    destinos = perfil.get("destinos", [])
-    operacao = perfil.get("operacao", "copiar")
-    primeiro_erro = OK
-
-    for arquivo in arquivos_validos:
-        resultado_arquivo = _processar_arquivo_para_destinos(arquivo, destinos, operacao)
-        if resultado_arquivo.get("processado"):
-            resultado["arquivos_processados"] += 1
-        resultado["arquivos_copiados"] += resultado_arquivo.get("arquivos_copiados", 0)
-        resultado["arquivos_movidos"] += resultado_arquivo.get("arquivos_movidos", 0)
-        resultado["arquivos_recortados"] += resultado_arquivo.get("arquivos_recortados", 0)
-        resultado["arquivos"].extend(resultado_arquivo.get("arquivos", []))
-        resultado["erros"].extend(resultado_arquivo.get("erros", []))
-        if primeiro_erro == OK and resultado_arquivo.get("codigo") != OK:
-            primeiro_erro = resultado_arquivo.get("codigo")
-
-    if not resultado["erros"]:
-        resultado["status"] = "sucesso"
-        return OK, resultado
-    if resultado["arquivos_processados"] > 0:
-        resultado["status"] = "parcial"
-        return primeiro_erro, resultado
-
-    resultado["status"] = "erro"
-    return primeiro_erro, resultado
 
 
 def _processar_arquivo_para_destinos(arquivo, destinos, operacao):

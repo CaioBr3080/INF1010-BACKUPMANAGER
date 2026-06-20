@@ -8,8 +8,6 @@ from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS, ERRO_JSON_CORRO
 __all__ = [
     "salvar_perfis",
     "carregar_perfis",
-    "salvar_historico",
-    "carregar_historico",
     "salvar_configuracoes",
     "carregar_configuracoes",
     "criar_arquivos_padrao",
@@ -18,7 +16,6 @@ __all__ = [
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _DATA_DIR = _BASE_DIR / "data"
 _PERFIS_PATH = _DATA_DIR / "perfis.json"
-_HISTORICO_PATH = _DATA_DIR / "historico.json"
 _CONFIG_PATH = _DATA_DIR / "config.json"
 
 
@@ -86,24 +83,6 @@ def carregar_perfis():
     return _carregar_json(_PERFIS_PATH, [])
 
 
-def salvar_historico(historico):
-    """Salva os registros de historico em `data/historico.json`.
-
-    Recebe a lista completa mantida em memoria e substitui o conteudo anterior
-    do arquivo. Retorna apenas codigo de resultado.
-    """
-    return _salvar_json(_HISTORICO_PATH, historico)
-
-
-def carregar_historico():
-    """Carrega os registros de historico persistidos.
-
-    Retorna `(codigo, historico)` usando lista vazia como valor padrao quando
-    nao houver dados validos.
-    """
-    return _carregar_json(_HISTORICO_PATH, [])
-
-
 def salvar_configuracoes(config):
     """Salva as configuracoes gerais da aplicacao.
 
@@ -125,9 +104,9 @@ def carregar_configuracoes():
 def criar_arquivos_padrao():
     """Garante a pasta `data` e os arquivos JSON essenciais.
 
-    Cria `perfis.json`, `historico.json` e `config.json` quando ainda nao
-    existem. Nao sobrescreve arquivos existentes. Deve ser chamada antes do
-    primeiro carregamento da aplicacao.
+    Cria `perfis.json` e `config.json` quando ainda nao existem. Nao
+    sobrescreve arquivos existentes. Deve ser chamada antes do primeiro
+    carregamento da aplicacao.
     """
     codigo = _garantir_pasta_data()
     if codigo != OK:
@@ -135,7 +114,6 @@ def criar_arquivos_padrao():
 
     arquivos = [
         (_PERFIS_PATH, []),
-        (_HISTORICO_PATH, []),
         (_CONFIG_PATH, {}),
     ]
 

@@ -181,12 +181,7 @@ def _atende_restricao_nome(arquivo, restricoes):
                 return True
         return False
 
-    trecho = restricoes.get("nome_contem", "")
-    if not trecho:
-        return True
-    if not isinstance(trecho, str):
-        return False
-    return trecho.strip().lower() in nome.lower()
+    return True
 
 
 def _normalizar_regras_nome(restricoes):

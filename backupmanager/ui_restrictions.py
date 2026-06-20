@@ -1,4 +1,4 @@
-﻿"""Area de restricoes, filtros de nome/extensao e agendamento da UI."""
+"""Area de restricoes e filtros da UI."""
 
 import tkinter as tk
 from tkinter import messagebox
@@ -32,21 +32,17 @@ __all__ = [
     "preencher_formulario_com_tipo",
     "limpar_area_tipo_destino",
     "formulario_tipo_possui_valor_invalido",
-    "normalizar_tipo_agendamento",
-    "obter_tipo_agendamento_interface",
 ]
-
-_AGENDAMENTO_OPCOES = ("manual", "intervalo", "alteracao")
 
 
 def criar_area_restricoes(janela, estado_interface, ao_alterar_restricoes=None):
-    """Cria o painel de restricoes e agendamento.
+    """Cria o painel de restricoes de arquivos.
 
-    Monta controles de extensao, regras de nome, tamanho, datas e intervalo
-    de execucao. Registra os widgets em `estado_interface` e aceita callback
-    opcional para salvar alteracoes do tipo selecionado.
+    Monta controles de extensao, regras de nome, tamanho e datas. Registra os
+    widgets em `estado_interface` e aceita callback opcional para salvar
+    alteracoes do tipo selecionado.
     """
-    frame = criar_painel(janela, "Restricoes e agendamento")
+    frame = criar_painel(janela, "Restricoes")
     frame.pack(fill="both", expand=True, side="right", padx=(4, 0), pady=8)
 
     conteudo = ctk.CTkScrollableFrame(
@@ -61,7 +57,6 @@ def criar_area_restricoes(janela, estado_interface, ao_alterar_restricoes=None):
     _criar_area_regras_nome(conteudo, estado_interface, ao_alterar_restricoes)
     _criar_area_tamanho(conteudo, estado_interface)
     _criar_area_datas(conteudo, estado_interface)
-    _criar_area_agendamento(conteudo, estado_interface)
     return frame
 
 
@@ -175,62 +170,8 @@ def _criar_area_datas(container, estado_interface):
     return linha_datas
 
 
-def _criar_area_agendamento(container, estado_interface):
-    """Cria campos de tipo e intervalo de agendamento."""
-    estado_interface["agendamento_tipo_var"] = tk.StringVar(value="manual")
-    criar_label(container, "Agendamento").pack(anchor="w", padx=8, pady=(8, 0))
-    combo = ctk.CTkComboBox(
-        container,
-        variable=estado_interface["agendamento_tipo_var"],
-        values=_AGENDAMENTO_OPCOES,
-        fg_color=COR_CAMPO,
-        border_color=COR_BORDA,
-        button_color=COR_PAINEL_2,
-        button_hover_color=COR_AZUL,
-        dropdown_fg_color=COR_PAINEL,
-        dropdown_hover_color=COR_AZUL,
-        text_color=COR_TEXTO,
-        dropdown_text_color=COR_TEXTO,
-        height=34,
-        corner_radius=6,
-        font=FONTE_PADRAO,
-    )
-    combo.pack(fill="x", padx=8, pady=4)
-
-    criar_label(container, "Intervalo").pack(anchor="w", padx=8)
-    linha_intervalo = ctk.CTkFrame(container, fg_color="transparent")
-    linha_intervalo.pack(fill="x", padx=8, pady=4)
-    estado_interface["entrada_intervalo"] = criar_entry(linha_intervalo)
-    estado_interface["entrada_intervalo"].pack(side="left", fill="x", expand=True)
-    estado_interface["intervalo_unidade_var"] = tk.StringVar(value="minutos")
-    combo_unidade = ctk.CTkComboBox(
-        linha_intervalo,
-        variable=estado_interface["intervalo_unidade_var"],
-        values=("segundos", "minutos", "horas"),
-        fg_color=COR_CAMPO,
-        border_color=COR_BORDA,
-        button_color=COR_PAINEL_2,
-        button_hover_color=COR_AZUL,
-        dropdown_fg_color=COR_PAINEL,
-        dropdown_hover_color=COR_AZUL,
-        text_color=COR_TEXTO,
-        dropdown_text_color=COR_TEXTO,
-        width=112,
-        height=34,
-        corner_radius=6,
-        font=FONTE_SELECAO,
-    )
-    combo_unidade.pack(side="left", padx=(8, 0))
-    return linha_intervalo
-
-
 def atualizar_checkboxes_extensoes(estado_interface, extensoes_marcadas=None):
-    """Recria a lista de checkboxes de extensoes disponiveis.
-
-    Consulta o controller para obter extensoes padrao/customizadas e marca as
-    extensoes passadas em `extensoes_marcadas`. Quando o parametro e `None`,
-    preserva a selecao visual atual.
-    """
+    """Recria a lista de checkboxes de extensoes disponiveis."""
     frame = estado_interface.get("frame_extensoes")
     if frame is None:
         return ERRO_DADOS_INVALIDOS
@@ -336,11 +277,7 @@ def _remover_regra_nome_interface(estado_interface, ao_alterar_restricoes=None):
 
 
 def atualizar_lista_regras_nome(estado_interface, regras):
-    """Atualiza a listbox de regras de nome e o estado correspondente.
-
-    Normaliza as regras recebidas, grava em `estado_interface["regras_nome"]`
-    e renderiza cada regra em formato legivel para o usuario.
-    """
+    """Atualiza a listbox de regras de nome e o estado correspondente."""
     regras = _normalizar_regras_nome_interface(regras)
     estado_interface["regras_nome"] = regras
     lista = estado_interface.get("lista_regras_nome")
@@ -378,15 +315,8 @@ def _normalizar_regras_nome_interface(regras):
 
 
 def _obter_regras_nome_das_restricoes(restricoes):
-    """Extrai regras de nome e migra o campo legado nome_contem."""
-    regras = _normalizar_regras_nome_interface(restricoes.get("regras_nome", []))
-    if regras:
-        return regras
-
-    nome_contem = restricoes.get("nome_contem", "")
-    if isinstance(nome_contem, str) and nome_contem.strip():
-        return [{"valor": nome_contem.strip(), "modo": "contem"}]
-    return []
+    """Extrai regras de nome salvas no formato atual."""
+    return _normalizar_regras_nome_interface(restricoes.get("regras_nome", []))
 
 
 def _obter_modo_regra_nome_interface(estado_interface):
@@ -404,19 +334,13 @@ def _formatar_regra_nome_interface(regra):
 
 
 def criar_restricoes_da_interface(estado_interface):
-    """Monta o dicionario de restricoes a partir dos campos da tela.
-
-    Converte inteiros e datas opcionais, coleta extensoes marcadas e regras de
-    nome, substituindo valores invalidos por defaults seguros. O retorno e o
-    formato persistido dentro de cada tipo de arquivo.
-    """
+    """Monta o dicionario de restricoes a partir dos campos da tela."""
     tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
     tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
     data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())
     data_max = converter_data_opcional(estado_interface["entrada_data_max"].get())
     return {
         "extensoes_permitidas": _obter_extensoes_marcadas(estado_interface),
-        "nome_contem": "",
         "regras_nome": _obter_regras_nome_interface(estado_interface),
         "tamanho_min": 0 if tamanho_min == "invalido" else tamanho_min,
         "tamanho_max": None if tamanho_max == "invalido" else tamanho_max,
@@ -426,27 +350,15 @@ def criar_restricoes_da_interface(estado_interface):
 
 
 def _obter_restricoes_do_tipo(tipo):
-    """Retorna restricoes do tipo, tolerando chaves antigas corrompidas."""
+    """Retorna restricoes do tipo no formato atual."""
     restricoes = tipo.get("restricoes", {})
     if isinstance(restricoes, dict) and restricoes:
         return restricoes
-
-    for chave, valor in list(tipo.items()):
-        if isinstance(chave, str) and chave.startswith("restri") and isinstance(valor, dict):
-            tipo["restricoes"] = valor
-            if chave != "restricoes":
-                tipo.pop(chave, None)
-            return valor
     return {}
 
 
 def preencher_formulario_com_tipo(estado_interface, tipo, atualizar_destinos_callback=None):
-    """Carrega no painel de restricoes os dados de um tipo selecionado.
-
-    Preenche nome, extensoes, regras de nome, tamanho e datas. Ao final,
-    executa callback opcional para atualizar a lista de destinos associada ao
-    tipo.
-    """
+    """Carrega no painel de restricoes os dados de um tipo selecionado."""
     if tipo is None:
         return ERRO_DADOS_INVALIDOS
     _preencher_entry(estado_interface["entrada_tipo_nome"], tipo.get("nome", ""))
@@ -463,11 +375,7 @@ def preencher_formulario_com_tipo(estado_interface, tipo, atualizar_destinos_cal
 
 
 def limpar_area_tipo_destino(estado_interface):
-    """Limpa campos relacionados ao tipo e seus destinos.
-
-    Usada quando nenhuma origem/tipo esta selecionado ou quando um item foi
-    removido. Reinicia filtros visuais e esvazia a lista de destinos.
-    """
+    """Limpa campos relacionados ao tipo e seus destinos."""
     _preencher_entry(estado_interface["entrada_tipo_nome"], "")
     atualizar_checkboxes_extensoes(estado_interface, [])
     atualizar_lista_regras_nome(estado_interface, [])
@@ -480,12 +388,7 @@ def limpar_area_tipo_destino(estado_interface):
 
 
 def formulario_tipo_possui_valor_invalido(estado_interface):
-    """Indica se algum filtro numerico ou de data do tipo atual e invalido.
-
-    Retorna booleano usado pela sincronizacao do formulario para impedir
-    salvar configuracoes com tamanhos negativos, textos nao numericos ou datas
-    fora do formato ISO.
-    """
+    """Indica se algum filtro numerico ou de data do tipo atual e invalido."""
     tamanho_min = converter_inteiro_opcional(estado_interface["entrada_tamanho_min"].get(), 0)
     tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
     data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())
@@ -507,37 +410,6 @@ def _obter_extensoes_marcadas(estado_interface):
     return extensoes
 
 
-def normalizar_tipo_agendamento(valor):
-    """Normaliza o tipo de agendamento para o contrato do backend.
-
-    Aceita textos vindos da UI ou de dados antigos e retorna sempre um dos
-    valores reconhecidos: `manual`, `intervalo` ou `alteracao`.
-    """
-    if not isinstance(valor, str):
-        return "manual"
-
-    valor = valor.strip().lower()
-    equivalencias = {
-        "manual": "manual",
-        "intervalo": "intervalo",
-        "alteracao": "alteracao",
-        "alteraÃ§Ã£o": "alteracao",
-    }
-    return equivalencias.get(valor, "manual")
-
-
-def obter_tipo_agendamento_interface(estado_interface):
-    """Retorna o tipo de agendamento selecionado na interface.
-
-    Le a variavel visual `agendamento_tipo_var` com fallback para `manual` e
-    normaliza o valor antes de devolve-lo ao formulario.
-    """
-    tipo_var = estado_interface.get("agendamento_tipo_var")
-    if tipo_var is None:
-        return "manual"
-    return normalizar_tipo_agendamento(tipo_var.get())
-
-
 def _preencher_entry(entrada, valor):
     entrada.delete(0, tk.END)
     entrada.insert(0, valor)
@@ -557,5 +429,3 @@ def _mostrar_mensagem_resultado(codigo):
     else:
         messagebox.showerror("BackupManager", mensagem)
     return codigo
-
-

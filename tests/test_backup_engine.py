@@ -24,9 +24,20 @@ class TestBackupEngine(unittest.TestCase):
     def test_executar_backup_base_sem_arquivos(self):
         codigo, resultado = backup_engine.executar_backup({
             "id": "perfil_001",
-            "origens": ["C:/origem"],
-            "destinos": ["D:/destino"],
-            "operacao": "copiar",
+            "origens_configuradas": [
+                {
+                    "id": "origem_001",
+                    "caminho": "C:/origem",
+                    "tipos_arquivo": [
+                        {
+                            "id": "tipo_001",
+                            "nome": "Todos",
+                            "restricoes": {"regras_nome": []},
+                            "destinos": [{"caminho": "D:/destino", "operacao": "copiar"}],
+                        }
+                    ],
+                }
+            ],
         })
 
         self.assertEqual(codigo, ERRO_BACKUP_SEM_ARQUIVOS)
@@ -35,9 +46,15 @@ class TestBackupEngine(unittest.TestCase):
     def test_validar_perfil_para_backup_valido(self):
         perfil = {
             "id": "perfil_001",
-            "origens": ["C:/origem"],
-            "destinos": ["D:/destino"],
-            "operacao": "copiar",
+            "origens_configuradas": [
+                {
+                    "id": "origem_001",
+                    "caminho": "C:/origem",
+                    "tipos_arquivo": [
+                        {"destinos": [{"caminho": "D:/destino", "operacao": "copiar"}]}
+                    ],
+                }
+            ],
         }
 
         self.assertEqual(backup_validation.validar_perfil_para_backup(perfil), OK)
@@ -51,9 +68,7 @@ class TestBackupEngine(unittest.TestCase):
     def test_validar_perfil_para_backup_rejeita_sem_origem(self):
         perfil = {
             "id": "perfil_001",
-            "origens": [],
-            "destinos": ["D:/destino"],
-            "operacao": "copiar",
+            "origens_configuradas": [],
         }
 
         self.assertEqual(
@@ -64,9 +79,13 @@ class TestBackupEngine(unittest.TestCase):
     def test_validar_perfil_para_backup_rejeita_sem_destino(self):
         perfil = {
             "id": "perfil_001",
-            "origens": ["C:/origem"],
-            "destinos": [],
-            "operacao": "copiar",
+            "origens_configuradas": [
+                {
+                    "id": "origem_001",
+                    "caminho": "C:/origem",
+                    "tipos_arquivo": [{"destinos": []}],
+                }
+            ],
         }
 
         self.assertEqual(
@@ -77,9 +96,15 @@ class TestBackupEngine(unittest.TestCase):
     def test_validar_perfil_para_backup_rejeita_operacao_invalida(self):
         perfil = {
             "id": "perfil_001",
-            "origens": ["C:/origem"],
-            "destinos": ["D:/destino"],
-            "operacao": "compactar",
+            "origens_configuradas": [
+                {
+                    "id": "origem_001",
+                    "caminho": "C:/origem",
+                    "tipos_arquivo": [
+                        {"destinos": [{"caminho": "D:/destino", "operacao": "compactar"}]}
+                    ],
+                }
+            ],
         }
 
         self.assertEqual(
@@ -90,9 +115,7 @@ class TestBackupEngine(unittest.TestCase):
     def test_executar_backup_retorna_erro_de_validacao(self):
         codigo, resultado = backup_engine.executar_backup({
             "id": "perfil_001",
-            "origens": [],
-            "destinos": ["D:/destino"],
-            "operacao": "copiar",
+            "origens_configuradas": [],
         })
 
         self.assertEqual(codigo, ERRO_ORIGEM_INVALIDA)
@@ -199,68 +222,6 @@ class TestBackupEngine(unittest.TestCase):
         self.assertEqual(backup_engine.mover_arquivo(None, "destino.txt"), ERRO_DADOS_INVALIDOS)
         self.assertEqual(backup_engine.mover_arquivo("origem.txt", ""), ERRO_DADOS_INVALIDOS)
 
-    def test_executar_backup_copia_para_multiplos_destinos(self):
-        with tempfile.TemporaryDirectory() as origem:
-            with tempfile.TemporaryDirectory() as destino_1:
-                with tempfile.TemporaryDirectory() as destino_2:
-                    arquivo = Path(origem) / "relatorio.txt"
-                    arquivo.write_text("backup", encoding="utf-8")
-                    perfil = {
-                        "id": "perfil_001",
-                        "origens": [origem],
-                        "destinos": [destino_1, destino_2],
-                        "operacao": "copiar",
-                        "restricoes": {
-                            "extensoes_permitidas": [".txt"],
-                            "nome_contem": "",
-                            "tamanho_min": 0,
-                            "tamanho_max": None,
-                            "data_modificacao_min": None,
-                            "data_modificacao_max": None,
-                        },
-                    }
-
-                    codigo, resultado = backup_engine.executar_backup(perfil)
-
-                    self.assertEqual(codigo, OK)
-                    self.assertEqual(resultado["status"], "sucesso")
-                    self.assertEqual(resultado["arquivos_processados"], 1)
-                    self.assertEqual(resultado["arquivos_copiados"], 2)
-                    self.assertTrue(arquivo.exists())
-                    self.assertEqual((Path(destino_1) / "relatorio.txt").read_text(encoding="utf-8"), "backup")
-                    self.assertEqual((Path(destino_2) / "relatorio.txt").read_text(encoding="utf-8"), "backup")
-
-    def test_executar_backup_move_para_multiplos_destinos(self):
-        with tempfile.TemporaryDirectory() as origem:
-            with tempfile.TemporaryDirectory() as destino_1:
-                with tempfile.TemporaryDirectory() as destino_2:
-                    arquivo = Path(origem) / "relatorio.txt"
-                    arquivo.write_text("mover", encoding="utf-8")
-                    perfil = {
-                        "id": "perfil_001",
-                        "origens": [origem],
-                        "destinos": [destino_1, destino_2],
-                        "operacao": "mover",
-                        "restricoes": {
-                            "extensoes_permitidas": [],
-                            "nome_contem": "",
-                            "tamanho_min": 0,
-                            "tamanho_max": None,
-                            "data_modificacao_min": None,
-                            "data_modificacao_max": None,
-                        },
-                    }
-
-                    codigo, resultado = backup_engine.executar_backup(perfil)
-
-                    self.assertEqual(codigo, OK)
-                    self.assertEqual(resultado["status"], "sucesso")
-                    self.assertEqual(resultado["arquivos_processados"], 1)
-                    self.assertEqual(resultado["arquivos_movidos"], 1)
-                    self.assertFalse(arquivo.exists())
-                    self.assertEqual((Path(destino_1) / "relatorio.txt").read_text(encoding="utf-8"), "mover")
-                    self.assertEqual((Path(destino_2) / "relatorio.txt").read_text(encoding="utf-8"), "mover")
-
     def test_executar_backup_retorna_sem_arquivos_quando_filtro_rejeita_todos(self):
         with tempfile.TemporaryDirectory() as origem:
             with tempfile.TemporaryDirectory() as destino:
@@ -268,17 +229,27 @@ class TestBackupEngine(unittest.TestCase):
                 arquivo.write_text("texto", encoding="utf-8")
                 perfil = {
                     "id": "perfil_001",
-                    "origens": [origem],
-                    "destinos": [destino],
-                    "operacao": "copiar",
-                    "restricoes": {
-                        "extensoes_permitidas": [".py"],
-                        "nome_contem": "",
-                        "tamanho_min": 0,
-                        "tamanho_max": None,
-                        "data_modificacao_min": None,
-                        "data_modificacao_max": None,
-                    },
+                    "origens_configuradas": [
+                        {
+                            "id": "origem_001",
+                            "caminho": origem,
+                            "tipos_arquivo": [
+                                {
+                                    "id": "tipo_py",
+                                    "nome": "Python",
+                                    "restricoes": {
+                                        "extensoes_permitidas": [".py"],
+                                        "regras_nome": [],
+                                        "tamanho_min": 0,
+                                        "tamanho_max": None,
+                                        "data_modificacao_min": None,
+                                        "data_modificacao_max": None,
+                                    },
+                                    "destinos": [{"caminho": destino, "operacao": "copiar"}],
+                                }
+                            ],
+                        }
+                    ],
                 }
 
                 codigo, resultado = backup_engine.executar_backup(perfil)

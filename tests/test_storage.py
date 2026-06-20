@@ -49,29 +49,24 @@ class TestStorage(unittest.TestCase):
     def test_criar_arquivos_padrao(self):
         data_dir_original = storage._DATA_DIR
         perfis_path_original = storage._PERFIS_PATH
-        historico_path_original = storage._HISTORICO_PATH
         config_path_original = storage._CONFIG_PATH
 
         try:
             with tempfile.TemporaryDirectory() as pasta:
                 storage._DATA_DIR = Path(pasta) / "data"
                 storage._PERFIS_PATH = storage._DATA_DIR / "perfis.json"
-                storage._HISTORICO_PATH = storage._DATA_DIR / "historico.json"
                 storage._CONFIG_PATH = storage._DATA_DIR / "config.json"
 
                 codigo = storage.criar_arquivos_padrao()
 
                 self.assertEqual(codigo, OK)
                 self.assertTrue(storage._PERFIS_PATH.exists())
-                self.assertTrue(storage._HISTORICO_PATH.exists())
                 self.assertTrue(storage._CONFIG_PATH.exists())
                 self.assertEqual(storage._carregar_json(storage._PERFIS_PATH, None), (OK, []))
-                self.assertEqual(storage._carregar_json(storage._HISTORICO_PATH, None), (OK, []))
                 self.assertEqual(storage._carregar_json(storage._CONFIG_PATH, None), (OK, {}))
         finally:
             storage._DATA_DIR = data_dir_original
             storage._PERFIS_PATH = perfis_path_original
-            storage._HISTORICO_PATH = historico_path_original
             storage._CONFIG_PATH = config_path_original
 
 

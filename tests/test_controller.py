@@ -8,8 +8,6 @@ from backupmanager.return_codes import (
     OK,
     ERRO_BACKUP_SEM_ARQUIVOS,
     ERRO_DADOS_INVALIDOS,
-    ERRO_DESTINO_INVALIDO,
-    ERRO_OPERACAO_INVALIDA,
     ERRO_ORIGEM_INVALIDA,
     ERRO_PERFIL_INATIVO,
 )
@@ -18,7 +16,6 @@ from backupmanager.return_codes import (
 def resetar_estado():
     """Reinicia o estado global usado pelo controller nos testes."""
     controller._ESTADO["perfis"] = []
-    controller._ESTADO["historico"] = []
     controller._ESTADO["config"] = {}
     controller._ESTADO["alterado"] = False
 
@@ -45,18 +42,15 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
 
     def test_finalizar_aplicacao_salva_json_quando_estado_foi_alterado(self):
         controller._ESTADO["perfis"] = [{"id": "perfil_001", "nome": "Teste"}]
-        controller._ESTADO["historico"] = [{"id": "hist_001"}]
         controller._ESTADO["config"] = {"tema": "padrao"}
         controller._ESTADO["alterado"] = True
 
         with patch("backupmanager.controller.storage.salvar_perfis", return_value=OK) as mock_perfis:
-            with patch("backupmanager.controller.storage.salvar_historico", return_value=OK) as mock_historico:
-                with patch("backupmanager.controller.storage.salvar_configuracoes", return_value=OK) as mock_config:
-                    codigo = controller.finalizar_aplicacao()
+            with patch("backupmanager.controller.storage.salvar_configuracoes", return_value=OK) as mock_config:
+                codigo = controller.finalizar_aplicacao()
 
         self.assertEqual(codigo, OK)
         mock_perfis.assert_called_once_with(controller._ESTADO["perfis"])
-        mock_historico.assert_called_once_with(controller._ESTADO["historico"])
         mock_config.assert_called_once_with(controller._ESTADO["config"])
         self.assertFalse(controller._ESTADO["alterado"])
 
@@ -64,13 +58,11 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
         controller._ESTADO["alterado"] = False
 
         with patch("backupmanager.controller.storage.salvar_perfis") as mock_perfis:
-            with patch("backupmanager.controller.storage.salvar_historico") as mock_historico:
-                with patch("backupmanager.controller.storage.salvar_configuracoes") as mock_config:
-                    codigo = controller.finalizar_aplicacao()
+            with patch("backupmanager.controller.storage.salvar_configuracoes") as mock_config:
+                codigo = controller.finalizar_aplicacao()
 
         self.assertEqual(codigo, OK)
         mock_perfis.assert_not_called()
-        mock_historico.assert_not_called()
         mock_config.assert_not_called()
 
     def test_inicializar_aplicacao_carrega_estado_em_memoria(self):
@@ -79,84 +71,49 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
                 "id": "perfil_001",
                 "nome": "Backup",
                 "origens_configuradas": [],
-                "agendamento": {"tipo": "manual"},
-                "estado_arquivos": {},
                 "ativo": True,
             }
         ]
-        historico = [{"id": "hist_001", "perfil_id": "perfil_001"}]
         config = {"versao": 1}
         controller._ESTADO["alterado"] = True
 
         with patch("backupmanager.controller.storage.criar_arquivos_padrao", return_value=OK):
             with patch("backupmanager.controller.storage.carregar_perfis", return_value=(OK, perfis)):
-                with patch("backupmanager.controller.storage.carregar_historico", return_value=(OK, historico)):
-                    with patch("backupmanager.controller.storage.carregar_configuracoes", return_value=(OK, config)):
-                        codigo = controller.inicializar_aplicacao()
+                with patch("backupmanager.controller.storage.carregar_configuracoes", return_value=(OK, config)):
+                    codigo = controller.inicializar_aplicacao()
 
         self.assertEqual(codigo, OK)
         self.assertEqual(controller._ESTADO["perfis"], perfis)
-        self.assertEqual(controller._ESTADO["historico"], historico)
         self.assertEqual(controller._ESTADO["config"], config)
         self.assertFalse(controller._ESTADO["alterado"])
 
-    def test_inicializar_aplicacao_migra_perfil_legado_e_marca_alterado(self):
-        perfis = [
-            {
-                "id": "perfil_001",
-                "nome": "Backup legado",
-                "origens": ["C:/Origem"],
-                "destinos": ["D:/Backup"],
-                "operacao": "copiar",
-                "restricoes": {"extensoes_permitidas": [".txt"]},
-            }
-        ]
-
-        with patch("backupmanager.controller.storage.criar_arquivos_padrao", return_value=OK):
-            with patch("backupmanager.controller.storage.carregar_perfis", return_value=(OK, perfis)):
-                with patch("backupmanager.controller.storage.carregar_historico", return_value=(OK, [])):
-                    with patch("backupmanager.controller.storage.carregar_configuracoes", return_value=(OK, {})):
-                        codigo = controller.inicializar_aplicacao()
-
-        self.assertEqual(codigo, OK)
-        perfil = controller._ESTADO["perfis"][0]
-        self.assertTrue(controller._ESTADO["alterado"])
-        self.assertNotIn("origens", perfil)
-        self.assertNotIn("destinos", perfil)
-        self.assertEqual(perfil["origens_configuradas"][0]["caminho"], "C:/Origem")
-        self.assertEqual(
-            perfil["origens_configuradas"][0]["tipos_arquivo"][0]["destinos"][0]["caminho"],
-            "D:/Backup",
-        )
-
-    def test_executar_backup_registra_historico_sem_salvar_json_imediatamente(self):
+    def test_executar_backup_nao_altera_estado_quando_falha_validacao(self):
         codigo, perfil = controller.criar_novo_perfil("Backup Teste")
         self.assertEqual(codigo, OK)
         controller._ESTADO["alterado"] = False
 
-        with patch("backupmanager.controller.storage.salvar_historico") as mock_salvar:
-            codigo_backup, resultado = controller.executar_backup_do_perfil(perfil["id"])
+        codigo_backup, resultado = controller.executar_backup_do_perfil(perfil["id"])
 
         self.assertEqual(codigo_backup, ERRO_ORIGEM_INVALIDA)
         self.assertEqual(resultado["perfil_id"], perfil["id"])
-        self.assertEqual(len(controller._ESTADO["historico"]), 1)
-        self.assertTrue(controller._ESTADO["alterado"])
-        mock_salvar.assert_not_called()
+        self.assertFalse(controller._ESTADO["alterado"])
 
     def test_salvar_perfil_editado_aplica_dados_em_memoria(self):
         codigo, perfil = controller.criar_novo_perfil("Backup Teste")
         self.assertEqual(codigo, OK)
         controller._ESTADO["alterado"] = False
 
+        origens_configuradas = [
+            {
+                "id": "origem_001",
+                "caminho": "C:/origem",
+                "tipos_arquivo": [],
+            }
+        ]
         perfil_editado = {
             "id": perfil["id"],
             "nome": "Backup Editado",
-            "origens": ["C:/origem"],
-            "destinos": ["D:/destino"],
-            "operacao": "mover",
-            "restricoes": {"extensoes_permitidas": [".py"]},
-            "agendamento": {"tipo": "manual"},
-            "estado_arquivos": {"arquivo.txt": 10},
+            "origens_configuradas": origens_configuradas,
             "ativo": False,
         }
 
@@ -165,12 +122,8 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
 
         self.assertEqual(codigo, OK)
         self.assertEqual(perfil["nome"], "Backup Editado")
-        self.assertEqual(perfil["origens"], ["C:/origem"])
-        self.assertEqual(perfil["destinos"], ["D:/destino"])
-        self.assertEqual(perfil["operacao"], "mover")
-        self.assertEqual(perfil["restricoes"], {"extensoes_permitidas": [".py"]})
-        self.assertEqual(perfil["agendamento"], {"tipo": "manual"})
-        self.assertEqual(perfil["estado_arquivos"], {"arquivo.txt": 10})
+        self.assertEqual(perfil["origens_configuradas"], origens_configuradas)
+        self.assertEqual(set(perfil.keys()), {"id", "nome", "origens_configuradas", "ativo"})
         self.assertFalse(perfil["ativo"])
         self.assertTrue(controller._ESTADO["alterado"])
         mock_salvar.assert_not_called()
@@ -208,35 +161,11 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
 
         codigo = controller.salvar_perfil_editado({
             "id": perfil["id"],
-            "origens": "C:/origem",
+            "origens_configuradas": "C:/origem",
         })
 
         self.assertEqual(codigo, ERRO_DADOS_INVALIDOS)
-        self.assertNotIn("origens", perfil)
-        self.assertFalse(controller._ESTADO["alterado"])
-
-    def test_definir_operacao_do_perfil_altera_memoria(self):
-        codigo, perfil = controller.criar_novo_perfil("Backup Teste")
-        self.assertEqual(codigo, OK)
-        controller._ESTADO["alterado"] = False
-
-        with patch("backupmanager.controller.storage.salvar_perfis") as mock_salvar:
-            codigo = controller.definir_operacao_do_perfil(perfil["id"], "mover")
-
-        self.assertEqual(codigo, OK)
-        self.assertEqual(perfil["operacao"], "mover")
-        self.assertTrue(controller._ESTADO["alterado"])
-        mock_salvar.assert_not_called()
-
-    def test_definir_operacao_invalida_nao_marca_alterado(self):
-        codigo, perfil = controller.criar_novo_perfil("Backup Teste")
-        self.assertEqual(codigo, OK)
-        controller._ESTADO["alterado"] = False
-
-        codigo = controller.definir_operacao_do_perfil(perfil["id"], "compactar")
-
-        self.assertEqual(codigo, ERRO_OPERACAO_INVALIDA)
-        self.assertNotIn("operacao", perfil)
+        self.assertEqual(perfil["origens_configuradas"], [])
         self.assertFalse(controller._ESTADO["alterado"])
 
     def test_ativar_e_desativar_perfil_alteram_memoria(self):
@@ -267,15 +196,27 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
             codigo = controller.salvar_perfil_editado({
                 "id": perfil["id"],
                 "nome": perfil["nome"],
-                "origens": [pasta],
-                "restricoes": {
-                    "extensoes_permitidas": [".py"],
-                    "nome_contem": "",
-                    "tamanho_min": 0,
-                    "tamanho_max": None,
-                    "data_modificacao_min": None,
-                    "data_modificacao_max": None,
-                },
+                "origens_configuradas": [
+                    {
+                        "id": "origem_001",
+                        "caminho": pasta,
+                        "tipos_arquivo": [
+                            {
+                                "id": "tipo_py",
+                                "nome": "Python",
+                                "restricoes": {
+                                    "extensoes_permitidas": [".py"],
+                                    "regras_nome": [],
+                                    "tamanho_min": 0,
+                                    "tamanho_max": None,
+                                    "data_modificacao_min": None,
+                                    "data_modificacao_max": None,
+                                },
+                                "destinos": [{"caminho": "D:/backup", "operacao": "copiar"}],
+                            }
+                        ],
+                    }
+                ],
             })
             self.assertEqual(codigo, OK)
 
@@ -327,77 +268,18 @@ class TestControllerPersistenciaMemoria(unittest.TestCase):
             self.assertEqual(arquivos_por_nome["relatorio.pdf"]["tipos_incluidos"], ["PDFs"])
             self.assertFalse(arquivos_por_nome["nota.txt"]["incluido"])
 
-    def test_executar_backup_bloqueia_perfil_inativo_sem_registrar_historico(self):
+    def test_executar_backup_bloqueia_perfil_inativo(self):
         codigo, perfil = controller.criar_novo_perfil("Backup Teste")
         self.assertEqual(codigo, OK)
         codigo = controller.desativar_perfil_por_id(perfil["id"])
         self.assertEqual(codigo, OK)
-        controller._ESTADO["historico"] = []
         controller._ESTADO["alterado"] = False
 
         codigo_backup, resultado = controller.executar_backup_do_perfil(perfil["id"])
 
         self.assertEqual(codigo_backup, ERRO_PERFIL_INATIVO)
         self.assertIsNone(resultado)
-        self.assertEqual(controller._ESTADO["historico"], [])
         self.assertFalse(controller._ESTADO["alterado"])
-
-    def test_adicionar_origem_valida_caminho(self):
-        codigo, perfil = controller.criar_novo_perfil("Backup Teste")
-        self.assertEqual(codigo, OK)
-        controller._ESTADO["alterado"] = False
-
-        with tempfile.TemporaryDirectory() as pasta:
-            codigo = controller.adicionar_origem_ao_perfil(perfil["id"], pasta)
-
-        self.assertEqual(codigo, OK)
-        self.assertTrue(controller._ESTADO["alterado"])
-
-        controller._ESTADO["alterado"] = False
-        codigo = controller.adicionar_origem_ao_perfil(perfil["id"], "")
-
-        self.assertEqual(codigo, ERRO_ORIGEM_INVALIDA)
-        self.assertFalse(controller._ESTADO["alterado"])
-
-    def test_adicionar_destino_valida_caminho(self):
-        codigo, perfil = controller.criar_novo_perfil("Backup Teste")
-        self.assertEqual(codigo, OK)
-        controller._ESTADO["alterado"] = False
-
-        with tempfile.TemporaryDirectory() as pasta:
-            codigo = controller.adicionar_destino_ao_perfil(perfil["id"], pasta)
-
-        self.assertEqual(codigo, OK)
-        self.assertTrue(controller._ESTADO["alterado"])
-
-        controller._ESTADO["alterado"] = False
-        codigo = controller.adicionar_destino_ao_perfil(perfil["id"], "")
-
-        self.assertEqual(codigo, ERRO_DESTINO_INVALIDO)
-        self.assertFalse(controller._ESTADO["alterado"])
-
-    def test_limpar_historico_do_perfil_altera_apenas_memoria(self):
-        controller._ESTADO["historico"] = [
-            {"id": "hist_1", "perfil_id": "perfil_1"},
-            {"id": "hist_2", "perfil_id": "perfil_2"},
-        ]
-        controller._ESTADO["alterado"] = False
-
-        codigo = controller.limpar_historico_do_perfil("perfil_1")
-
-        self.assertEqual(codigo, OK)
-        self.assertEqual(controller._ESTADO["historico"], [{"id": "hist_2", "perfil_id": "perfil_2"}])
-        self.assertTrue(controller._ESTADO["alterado"])
-
-    def test_limpar_todo_historico_altera_apenas_memoria(self):
-        controller._ESTADO["historico"] = [{"id": "hist_1", "perfil_id": "perfil_1"}]
-        controller._ESTADO["alterado"] = False
-
-        codigo = controller.limpar_todo_historico()
-
-        self.assertEqual(codigo, OK)
-        self.assertEqual(controller._ESTADO["historico"], [])
-        self.assertTrue(controller._ESTADO["alterado"])
 
     def test_configuracoes_gerais_alteram_apenas_memoria(self):
         controller._ESTADO["config"] = {"tema": "escuro"}
