@@ -1,5 +1,6 @@
 ﻿"""Validacao de perfis, origens, tipos, destinos e operacoes de backup."""
 
+from backupmanager.domain import perfil_manager
 from backupmanager.return_codes import (
     OK,
     ERRO_DADOS_INVALIDOS,
@@ -37,28 +38,23 @@ def validar_perfil_configurado_para_backup(perfil):
     e destinos usam listas/dicionarios validos e se ha pelo menos um destino
     configurado. Tambem valida conflitos de operacao por tipo.
     """
-    origens = perfil.get("origens_configuradas", [])
-    if not isinstance(origens, list) or not origens:
+    origens = perfil_manager.obter_origens_configuradas(perfil)
+    if not origens:
         return ERRO_ORIGEM_INVALIDA
 
     possui_destino = False
     for origem in origens:
-        if not isinstance(origem, dict):
+        if not perfil_manager.origem_e_valida(origem):
             return ERRO_ORIGEM_INVALIDA
-        if origem.get("ativo", True) and not origem.get("caminho"):
+        if perfil_manager.origem_esta_ativa(origem) and not perfil_manager.obter_caminho_origem(origem):
             return ERRO_ORIGEM_INVALIDA
-        tipos = origem.get("tipos_arquivo", [])
-        if not isinstance(tipos, list):
-            return ERRO_DADOS_INVALIDOS
-        for tipo in tipos:
-            if not isinstance(tipo, dict):
+        for tipo in perfil_manager.obter_tipos_origem(origem):
+            if not perfil_manager.tipo_e_valido(tipo):
                 return ERRO_DADOS_INVALIDOS
-            destinos = tipo.get("destinos", [])
-            if not isinstance(destinos, list):
-                return ERRO_DESTINO_INVALIDO
+            destinos = perfil_manager.obter_destinos_tipo(tipo)
             if destinos:
                 possui_destino = True
-            if not origem.get("ativo", True) or not tipo.get("ativo", True):
+            if not perfil_manager.origem_esta_ativa(origem) or not perfil_manager.tipo_esta_ativo(tipo):
                 continue
             codigo = validar_destinos_do_tipo(tipo)
             if codigo != OK:
@@ -76,13 +72,13 @@ def validar_destinos_do_tipo(tipo):
     (`mover` ou `recortar`) nao podem coexistir com multiplos destinos, pois a
     origem deixaria de existir apos a primeira remocao.
     """
-    destinos = tipo.get("destinos", [])
+    destinos = perfil_manager.obter_destinos_tipo(tipo)
     operacoes_remocao = []
 
     for destino in destinos:
-        if not isinstance(destino, dict) or not destino.get("caminho"):
+        if not perfil_manager.destino_e_valido(destino) or not perfil_manager.obter_caminho_destino(destino):
             return ERRO_DESTINO_INVALIDO
-        operacao = destino.get("operacao", "copiar")
+        operacao = perfil_manager.obter_operacao_destino(destino)
         if operacao not in _OPERACOES_VALIDAS:
             return ERRO_OPERACAO_INVALIDA
         if operacao in ("mover", "recortar"):

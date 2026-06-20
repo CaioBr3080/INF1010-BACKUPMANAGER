@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from datetime import datetime
 
+from backupmanager.domain import perfil_manager
+
 __all__ = [
     "caminho_existe",
     "caminho_e_diretorio",
@@ -11,6 +13,18 @@ __all__ = [
     "listar_arquivos_de_origens",
     "obter_extensao",
     "obter_metadados_arquivo",
+    "arquivo_e_valido",
+    "obter_caminho_arquivo",
+    "obter_nome_arquivo",
+    "obter_extensao_arquivo",
+    "obter_tamanho_arquivo",
+    "obter_data_modificacao_arquivo",
+    "obter_nome_tipo_arquivo",
+    "associar_tipo_ao_arquivo",
+    "associar_origem_ao_arquivo",
+    "iniciar_tipos_incluidos_arquivo",
+    "adicionar_tipo_incluido_arquivo",
+    "arquivo_possui_tipo_incluido",
     "arquivo_atende_restricoes",
     "verificar_permissao_leitura",
     "verificar_permissao_escrita",
@@ -124,6 +138,110 @@ def obter_metadados_arquivo(caminho):
     }
 
 
+def arquivo_e_valido(arquivo):
+    """Indica se a entrada possui formato minimo de metadados de arquivo."""
+    return isinstance(arquivo, dict)
+
+
+def obter_caminho_arquivo(arquivo):
+    """Retorna o caminho completo de um arquivo de metadados."""
+    if not arquivo_e_valido(arquivo):
+        return ""
+    caminho = arquivo.get("caminho", "")
+    if not isinstance(caminho, str):
+        return ""
+    return caminho
+
+
+def obter_nome_arquivo(arquivo):
+    """Retorna o nome do arquivo de metadados."""
+    if not arquivo_e_valido(arquivo):
+        return ""
+    nome = arquivo.get("nome", "")
+    if isinstance(nome, str) and nome:
+        return nome
+    return Path(obter_caminho_arquivo(arquivo)).name
+
+
+def obter_extensao_arquivo(arquivo):
+    """Retorna a extensao registrada nos metadados do arquivo."""
+    if not arquivo_e_valido(arquivo):
+        return ""
+    extensao = arquivo.get("extensao", "")
+    if not isinstance(extensao, str):
+        return ""
+    return extensao
+
+
+def obter_tamanho_arquivo(arquivo):
+    """Retorna o tamanho em bytes registrado nos metadados."""
+    if not arquivo_e_valido(arquivo):
+        return 0
+    tamanho = arquivo.get("tamanho", 0)
+    if not isinstance(tamanho, int):
+        return 0
+    return tamanho
+
+
+def obter_data_modificacao_arquivo(arquivo):
+    """Retorna o timestamp de modificacao registrado nos metadados."""
+    if not arquivo_e_valido(arquivo):
+        return None
+    return arquivo.get("data_modificacao")
+
+
+def obter_nome_tipo_arquivo(arquivo):
+    """Retorna o nome do tipo associado aos metadados do arquivo."""
+    if not arquivo_e_valido(arquivo):
+        return ""
+    nome = arquivo.get("tipo_nome", "")
+    if not isinstance(nome, str):
+        return ""
+    return nome
+
+
+def associar_tipo_ao_arquivo(arquivo, tipo_id, tipo_nome):
+    """Associa informacoes de tipo ao dicionario de metadados do arquivo."""
+    if not arquivo_e_valido(arquivo):
+        return None
+    arquivo["tipo_id"] = tipo_id
+    arquivo["tipo_nome"] = tipo_nome
+    return arquivo
+
+
+def associar_origem_ao_arquivo(arquivo, origem):
+    """Registra a origem usada na pre-visualizacao do arquivo."""
+    if not arquivo_e_valido(arquivo):
+        return None
+    arquivo["origem"] = origem
+    return arquivo
+
+
+def iniciar_tipos_incluidos_arquivo(arquivo):
+    """Inicializa a lista de tipos incluidos na pre-visualizacao."""
+    if not arquivo_e_valido(arquivo):
+        return None
+    arquivo["tipos_incluidos"] = []
+    return arquivo
+
+
+def adicionar_tipo_incluido_arquivo(arquivo, tipo_nome):
+    """Adiciona um tipo aprovado na pre-visualizacao do arquivo."""
+    if not arquivo_e_valido(arquivo):
+        return None
+    if "tipos_incluidos" not in arquivo or not isinstance(arquivo["tipos_incluidos"], list):
+        arquivo["tipos_incluidos"] = []
+    arquivo["tipos_incluidos"].append(tipo_nome)
+    return arquivo
+
+
+def arquivo_possui_tipo_incluido(arquivo):
+    """Indica se a pre-visualizacao marcou algum tipo incluido."""
+    if not arquivo_e_valido(arquivo):
+        return False
+    return bool(arquivo.get("tipos_incluidos", []))
+
+
 def arquivo_atende_restricoes(arquivo, restricoes):
     """Verifica se um arquivo atende a todas as restricoes configuradas.
 
@@ -144,7 +262,7 @@ def arquivo_atende_restricoes(arquivo, restricoes):
 
 def _atende_restricao_extensao(arquivo, restricoes):
     """Verifica filtro por extensao."""
-    extensoes = restricoes.get("extensoes_permitidas", [])
+    extensoes = perfil_manager.obter_extensoes_restricoes(restricoes)
     if not extensoes:
         return True
 
@@ -162,7 +280,7 @@ def _atende_restricao_extensao(arquivo, restricoes):
     if not extensoes_normalizadas:
         return True
 
-    extensao_arquivo = arquivo.get("extensao", "")
+    extensao_arquivo = obter_extensao_arquivo(arquivo)
     if not isinstance(extensao_arquivo, str):
         return False
     return extensao_arquivo.strip().lower() in extensoes_normalizadas
@@ -170,7 +288,7 @@ def _atende_restricao_extensao(arquivo, restricoes):
 
 def _atende_restricao_nome(arquivo, restricoes):
     """Verifica filtros por nome do arquivo."""
-    nome = arquivo.get("nome", "")
+    nome = obter_nome_arquivo(arquivo)
     if not isinstance(nome, str):
         return False
 
@@ -186,9 +304,7 @@ def _atende_restricao_nome(arquivo, restricoes):
 
 def _normalizar_regras_nome(restricoes):
     """Normaliza regras novas de nome, ignorando entradas invalidas."""
-    regras = restricoes.get("regras_nome", [])
-    if not isinstance(regras, list):
-        return []
+    regras = perfil_manager.obter_regras_nome_restricoes(restricoes)
 
     normalizadas = []
     for regra in regras:
@@ -217,9 +333,9 @@ def _nome_atende_regra(nome, regra):
 
 def _atende_restricao_tamanho(arquivo, restricoes):
     """Verifica filtros por tamanho minimo e maximo."""
-    tamanho = arquivo.get("tamanho", 0)
-    tamanho_min = restricoes.get("tamanho_min", 0) or 0
-    tamanho_max = restricoes.get("tamanho_max")
+    tamanho = obter_tamanho_arquivo(arquivo)
+    tamanho_min = perfil_manager.obter_tamanho_min_restricoes(restricoes)
+    tamanho_max = perfil_manager.obter_tamanho_max_restricoes(restricoes)
 
     if not isinstance(tamanho, int) or not isinstance(tamanho_min, int):
         return False
@@ -235,15 +351,15 @@ def _atende_restricao_tamanho(arquivo, restricoes):
 
 def _atende_restricao_data_modificacao(arquivo, restricoes):
     """Verifica filtros por data de modificacao."""
-    data_arquivo = arquivo.get("data_modificacao")
+    data_arquivo = obter_data_modificacao_arquivo(arquivo)
     if not isinstance(data_arquivo, (int, float)):
         return False
 
     data_min = _converter_data_restricao_para_timestamp(
-        restricoes.get("data_modificacao_min")
+        perfil_manager.obter_data_min_restricoes(restricoes)
     )
     data_max = _converter_data_restricao_para_timestamp(
-        restricoes.get("data_modificacao_max")
+        perfil_manager.obter_data_max_restricoes(restricoes)
     )
 
     if data_min is not None and data_arquivo < data_min:

@@ -1,45 +1,50 @@
-import unittest
-
-from backupmanager import perfil_manager
+from backupmanager.domain import perfil_manager
 from backupmanager.return_codes import OK, ERRO_NOME_INVALIDO, ERRO_PERFIL_NAO_ENCONTRADO
+from tests.assertions import (
+    assert_equal,
+    assert_false,
+    assert_in,
+    assert_is_instance,
+    assert_is_none,
+    assert_is_not_none,
+    assert_not_equal,
+    assert_not_in,
+    assert_true,
+)
 
 
-class TestPerfilManager(unittest.TestCase):
-    def test_criar_perfil_valido(self):
-        codigo, perfil = perfil_manager.criar_perfil("Backup Faculdade")
+def test_criar_perfil_valido():
+    codigo, perfil = perfil_manager.criar_perfil("Backup Faculdade")
 
-        self.assertEqual(codigo, OK)
-        self.assertEqual(perfil["nome"], "Backup Faculdade")
-        self.assertEqual(perfil["origens_configuradas"], [])
-        self.assertEqual(set(perfil.keys()), {"id", "nome", "origens_configuradas", "ativo"})
+    assert_equal(codigo, OK)
+    assert_equal(perfil["nome"], "Backup Faculdade")
+    assert_equal(perfil["origens_configuradas"], [])
+    assert_equal(set(perfil.keys()), {"id", "nome", "origens_configuradas", "ativo"})
 
-    def test_criar_perfil_nome_vazio(self):
-        codigo, perfil = perfil_manager.criar_perfil("")
+def test_criar_perfil_nome_vazio():
+    codigo, perfil = perfil_manager.criar_perfil("")
 
-        self.assertEqual(codigo, ERRO_NOME_INVALIDO)
-        self.assertIsNone(perfil)
+    assert_equal(codigo, ERRO_NOME_INVALIDO)
+    assert_is_none(perfil)
 
-    def test_consultar_perfil_existente(self):
-        _, perfil = perfil_manager.criar_perfil("Projetos")
-        codigo, encontrado = perfil_manager.consultar_perfil([perfil], perfil["id"])
+def test_consultar_perfil_existente():
+    _, perfil = perfil_manager.criar_perfil("Projetos")
+    codigo, encontrado = perfil_manager.consultar_perfil([perfil], perfil["id"])
 
-        self.assertEqual(codigo, OK)
-        self.assertEqual(encontrado["id"], perfil["id"])
+    assert_equal(codigo, OK)
+    assert_equal(encontrado["id"], perfil["id"])
 
-    def test_consultar_perfil_inexistente(self):
-        codigo, perfil = perfil_manager.consultar_perfil([], "perfil_x")
+def test_consultar_perfil_inexistente():
+    codigo, perfil = perfil_manager.consultar_perfil([], "perfil_x")
 
-        self.assertEqual(codigo, ERRO_PERFIL_NAO_ENCONTRADO)
-        self.assertIsNone(perfil)
+    assert_equal(codigo, ERRO_PERFIL_NAO_ENCONTRADO)
+    assert_is_none(perfil)
 
-    def test_criar_origem_tipo_e_destino_configurados(self):
-        origem = perfil_manager.criar_origem_configurada("C:/Documentos")
-        destino = perfil_manager.criar_destino_tipo("D:/Backup", "recortar")
-        tipo = perfil_manager.criar_tipo_arquivo("PDFs", {"extensoes_permitidas": [".pdf"]}, [destino])
+def test_criar_origem_tipo_e_destino_configurados():
+    origem = perfil_manager.criar_origem_configurada("C:/Documentos")
+    destino = perfil_manager.criar_destino_tipo("D:/Backup", "recortar")
+    tipo = perfil_manager.criar_tipo_arquivo("PDFs", {"extensoes_permitidas": [".pdf"]}, [destino])
 
-        self.assertEqual(origem["caminho"], "C:/Documentos")
-        self.assertEqual(tipo["nome"], "PDFs")
-        self.assertEqual(tipo["destinos"][0]["operacao"], "recortar")
-
-if __name__ == "__main__":
-    unittest.main()
+    assert_equal(origem["caminho"], "C:/Documentos")
+    assert_equal(tipo["nome"], "PDFs")
+    assert_equal(tipo["destinos"][0]["operacao"], "recortar")

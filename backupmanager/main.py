@@ -1,6 +1,6 @@
 """Ponto de entrada do BackupManager."""
 
-from backupmanager.interface import iniciar_interface
+from backupmanager.ui.interface import iniciar_interface
 
 __all__ = ["main"]
 

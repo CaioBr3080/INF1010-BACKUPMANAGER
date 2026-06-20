@@ -28,11 +28,12 @@ Arquivos usados:
 
 Camadas principais:
 
-- UI: `interface.py`, `ui_profiles.py`, `ui_backup_flow.py`,
-  `ui_restrictions.py`, `ui_actions.py`, `ui_converters.py`, `ui_theme.py`.
-- Dominio: `perfil_manager.py`, `backup_engine.py`, `backup_validation.py`,
-  `backup_result.py`, `file_utils.py`.
-- Infra: `storage.py`, `return_codes.py`.
+- UI: `ui/interface.py`, `ui/profiles.py`, `ui/backup_flow.py`,
+  `ui/restrictions.py`, `ui/actions.py`, `ui/converters.py`, `ui/theme.py`.
+- Dominio: `domain/perfil_manager.py`, `domain/backup_validation.py`,
+  `domain/backup_result.py`.
+- Engine: `engine/backup_engine.py`, `engine/file_utils.py`.
+- Infra: `infra/storage.py`, `return_codes.py`.
 
 Regras:
 

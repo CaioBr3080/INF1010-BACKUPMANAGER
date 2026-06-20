@@ -7,23 +7,24 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from backupmanager import controller
+from backupmanager.domain import backup_result, perfil_manager
 from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS, obter_mensagem
-from backupmanager.ui_backup_flow import (
+from backupmanager.ui.backup_flow import (
     atualizar_lista_origens_configuradas,
     salvar_tipo_selecionado_em_memoria,
     selecionar_origem_por_indice,
 )
-from backupmanager.ui_converters import (
+from backupmanager.ui.converters import (
     converter_data_opcional,
     converter_inteiro_opcional,
 )
-from backupmanager.ui_restrictions import (
+from backupmanager.ui.restrictions import (
     atualizar_checkboxes_extensoes,
     atualizar_lista_regras_nome,
     formulario_tipo_possui_valor_invalido,
     limpar_area_tipo_destino,
 )
-from backupmanager.ui_theme import COR_VERDE, criar_botao
+from backupmanager.ui.theme import COR_VERDE, criar_botao
 
 __all__ = [
     "criar_area_botoes",
@@ -69,7 +70,7 @@ def executar_backup_interface(estado_interface):
     if codigo_salvar != OK:
         return codigo_salvar
 
-    perfil_id = perfil.get("id")
+    perfil_id = perfil_manager.obter_id_perfil(perfil)
     if not perfil_id:
         mostrar_mensagem_resultado(ERRO_DADOS_INVALIDOS)
         return ERRO_DADOS_INVALIDOS
@@ -117,9 +118,9 @@ def preencher_formulario_com_perfil(estado_interface, perfil):
     Atualiza nome, ativo, origens configuradas, selecao inicial e restricoes
     usando somente o modelo atual da aplicacao.
     """
-    estado_interface["perfil_selecionado_id"] = perfil.get("id")
-    _preencher_entry(estado_interface["entrada_nome"], perfil.get("nome", ""))
-    estado_interface["ativo_var"].set(perfil.get("ativo", True))
+    estado_interface["perfil_selecionado_id"] = perfil_manager.obter_id_perfil(perfil)
+    _preencher_entry(estado_interface["entrada_nome"], perfil_manager.obter_nome_perfil(perfil))
+    estado_interface["ativo_var"].set(perfil_manager.perfil_esta_ativo(perfil))
     estado_interface["operacao_var"].set("copiar")
 
     estado_interface["origens_configuradas"] = _montar_origens_configuradas_para_interface(perfil)
@@ -205,13 +206,13 @@ def _finalizar_backup_interface(estado_interface, codigo, resultado, erro):
         mensagem = (
             obter_mensagem(codigo)
             + "\n\nArquivos processados: "
-            + str(resultado.get("arquivos_processados", 0))
+            + str(backup_result.obter_contador_resultado(resultado, "arquivos_processados"))
             + "\nCopiados: "
-            + str(resultado.get("arquivos_copiados", 0))
+            + str(backup_result.obter_contador_resultado(resultado, "arquivos_copiados"))
             + "\nMovidos: "
-            + str(resultado.get("arquivos_movidos", 0))
+            + str(backup_result.obter_contador_resultado(resultado, "arquivos_movidos"))
             + "\nRecortados: "
-            + str(resultado.get("arquivos_recortados", 0))
+            + str(backup_result.obter_contador_resultado(resultado, "arquivos_recortados"))
         )
         if codigo == OK:
             messagebox.showinfo("BackupManager", mensagem)
@@ -261,7 +262,7 @@ def _obter_dados_formulario(estado_interface):
 
 def _montar_origens_configuradas_para_interface(perfil):
     """Copia as origens configuradas do perfil para uso seguro na interface."""
-    origens_configuradas = perfil.get("origens_configuradas", [])
+    origens_configuradas = perfil_manager.obter_origens_configuradas(perfil)
     if isinstance(origens_configuradas, list):
         return _copiar_lista_dicionarios(origens_configuradas)
     return []
@@ -302,7 +303,7 @@ def _preencher_entry(entrada, valor):
 def _mostrar_erro_validacao_formulario(estado_interface):
     """Mostra mensagem especifica para dados invalidos do formulario."""
     if not estado_interface.get("perfil_selecionado_id"):
-        messagebox.showerror("BackupManager", "Selecione um perfil antes de aplicar alteracoes.")
+        messagebox.showerror("BackupManager", "Selecione um perfil antes de aplicar alterações.")
         return ERRO_DADOS_INVALIDOS
 
     if not estado_interface["entrada_nome"].get().strip():
@@ -339,11 +340,11 @@ def _mostrar_erro_validacao_formulario(estado_interface):
 def _existe_conflito_operacao_interface(estado_interface):
     """Verifica conflito visual de mover/recortar em multiplos destinos."""
     for origem in estado_interface.get("origens_configuradas", []):
-        for tipo in origem.get("tipos_arquivo", []):
-            destinos = tipo.get("destinos", [])
+        for tipo in perfil_manager.obter_tipos_origem(origem):
+            destinos = perfil_manager.obter_destinos_tipo(tipo)
             if len(destinos) <= 1:
                 continue
             for destino in destinos:
-                if destino.get("operacao") in ("mover", "recortar"):
+                if perfil_manager.obter_operacao_destino(destino) in ("mover", "recortar"):
                     return True
     return False

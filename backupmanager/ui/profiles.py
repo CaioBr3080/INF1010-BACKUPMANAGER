@@ -6,14 +6,15 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from backupmanager import controller
+from backupmanager.domain import perfil_manager
 from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS
-from backupmanager.ui_actions import (
+from backupmanager.ui.actions import (
     limpar_formulario,
     mostrar_mensagem_resultado,
     preencher_formulario_com_perfil,
     sincronizar_perfil_atual_interface,
 )
-from backupmanager.ui_theme import (
+from backupmanager.ui.theme import (
     COR_AZUL,
     COR_BORDA,
     COR_TEXTO,
@@ -101,9 +102,9 @@ def atualizar_lista_perfis(estado_interface):
     estado_interface["ids_perfis"] = []
 
     for perfil in perfis:
-        marcador = "ativo" if perfil.get("ativo", True) else "inativo"
-        lista.insert(tk.END, perfil.get("nome", "Sem nome") + " (" + marcador + ")")
-        estado_interface["ids_perfis"].append(perfil.get("id"))
+        marcador = "ativo" if perfil_manager.perfil_esta_ativo(perfil) else "inativo"
+        lista.insert(tk.END, perfil_manager.obter_nome_perfil(perfil) + " (" + marcador + ")")
+        estado_interface["ids_perfis"].append(perfil_manager.obter_id_perfil(perfil))
 
     return codigo
 
@@ -133,9 +134,10 @@ def _criar_perfil_interface(estado_interface):
         mostrar_mensagem_resultado(codigo)
         return codigo
 
-    estado_interface["perfil_selecionado_id"] = perfil.get("id")
+    perfil_id = perfil_manager.obter_id_perfil(perfil)
+    estado_interface["perfil_selecionado_id"] = perfil_id
     atualizar_lista_perfis(estado_interface)
-    selecionar_perfil_por_id(estado_interface, perfil.get("id"))
+    selecionar_perfil_por_id(estado_interface, perfil_id)
     mostrar_mensagem_resultado(codigo)
     return codigo
 

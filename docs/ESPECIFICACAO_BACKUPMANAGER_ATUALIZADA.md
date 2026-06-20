@@ -72,10 +72,10 @@ Nao inclui:
 ## Modulos Principais
 
 - `controller.py`: fachada da aplicacao.
-- `perfil_manager.py`: TAD de perfis.
-- `backup_engine.py`: execucao de backup.
-- `backup_validation.py`: validacoes do fluxo.
-- `backup_result.py`: estrutura de resultado.
-- `file_utils.py`: arquivos e filtros.
-- `storage.py`: JSON.
-- `interface.py` e `ui_*`: interface grafica.
+- `domain/perfil_manager.py`: TAD de perfis.
+- `domain/backup_validation.py`: validacoes do fluxo.
+- `domain/backup_result.py`: estrutura de resultado.
+- `engine/backup_engine.py`: execucao de backup.
+- `engine/file_utils.py`: arquivos e filtros.
+- `infra/storage.py`: JSON.
+- `ui/*`: interface grafica.

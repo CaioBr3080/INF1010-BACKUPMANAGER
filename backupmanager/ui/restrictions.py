@@ -6,9 +6,10 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from backupmanager import controller
+from backupmanager.domain import perfil_manager
 from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS, obter_mensagem
-from backupmanager.ui_converters import converter_data_opcional, converter_inteiro_opcional
-from backupmanager.ui_theme import (
+from backupmanager.ui.converters import converter_data_opcional, converter_inteiro_opcional
+from backupmanager.ui.theme import (
     COR_AZUL,
     COR_BORDA,
     COR_CAMPO,
@@ -42,8 +43,8 @@ def criar_area_restricoes(janela, estado_interface, ao_alterar_restricoes=None):
     widgets em `estado_interface` e aceita callback opcional para salvar
     alteracoes do tipo selecionado.
     """
-    frame = criar_painel(janela, "Restricoes")
-    frame.pack(fill="both", expand=True, side="right", padx=(4, 0), pady=8)
+    frame = criar_painel(janela, "Restrições")
+    frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0), pady=8)
 
     conteudo = ctk.CTkScrollableFrame(
         frame,
@@ -62,7 +63,7 @@ def criar_area_restricoes(janela, estado_interface, ao_alterar_restricoes=None):
 
 def _criar_area_extensoes(container, estado_interface):
     """Cria a selecao de extensoes disponiveis por checkbox."""
-    criar_label(container, "Extensoes permitidas").pack(anchor="w", padx=8, pady=(8, 0))
+    criar_label(container, "Extensões permitidas").pack(anchor="w", padx=8, pady=(8, 0))
 
     linha_adicionar = ctk.CTkFrame(container, fg_color="transparent")
     linha_adicionar.pack(fill="x", padx=8, pady=(4, 4))
@@ -101,11 +102,11 @@ def _criar_area_regras_nome(container, estado_interface, ao_alterar_restricoes=N
         "<Return>",
         lambda evento: _adicionar_regra_nome_interface(estado_interface, ao_alterar_restricoes),
     )
-    estado_interface["modo_regra_nome_var"] = tk.StringVar(value="Contem no nome")
+    estado_interface["modo_regra_nome_var"] = tk.StringVar(value="Contém no nome")
     combo_modo = ctk.CTkComboBox(
         linha_adicionar,
         variable=estado_interface["modo_regra_nome_var"],
-        values=("Contem no nome", "Nome completo"),
+        values=("Contém no nome", "Nome completo"),
         fg_color=COR_CAMPO,
         border_color=COR_BORDA,
         button_color=COR_PAINEL_2,
@@ -316,7 +317,7 @@ def _normalizar_regras_nome_interface(regras):
 
 def _obter_regras_nome_das_restricoes(restricoes):
     """Extrai regras de nome salvas no formato atual."""
-    return _normalizar_regras_nome_interface(restricoes.get("regras_nome", []))
+    return _normalizar_regras_nome_interface(perfil_manager.obter_regras_nome_restricoes(restricoes))
 
 
 def _obter_modo_regra_nome_interface(estado_interface):
@@ -329,7 +330,7 @@ def _obter_modo_regra_nome_interface(estado_interface):
 
 def _formatar_regra_nome_interface(regra):
     """Formata uma regra de nome para exibicao em listbox."""
-    rotulo = "Nome completo" if regra.get("modo") == "exato" else "Contem"
+    rotulo = "Nome completo" if regra.get("modo") == "exato" else "Contém"
     return rotulo + ": " + regra.get("valor", "")
 
 
@@ -339,37 +340,34 @@ def criar_restricoes_da_interface(estado_interface):
     tamanho_max = converter_inteiro_opcional(estado_interface["entrada_tamanho_max"].get(), None)
     data_min = converter_data_opcional(estado_interface["entrada_data_min"].get())
     data_max = converter_data_opcional(estado_interface["entrada_data_max"].get())
-    return {
-        "extensoes_permitidas": _obter_extensoes_marcadas(estado_interface),
-        "regras_nome": _obter_regras_nome_interface(estado_interface),
-        "tamanho_min": 0 if tamanho_min == "invalido" else tamanho_min,
-        "tamanho_max": None if tamanho_max == "invalido" else tamanho_max,
-        "data_modificacao_min": None if data_min == "invalido" else data_min,
-        "data_modificacao_max": None if data_max == "invalido" else data_max,
-    }
+    return perfil_manager.criar_restricoes(
+        _obter_extensoes_marcadas(estado_interface),
+        _obter_regras_nome_interface(estado_interface),
+        0 if tamanho_min == "invalido" else tamanho_min,
+        None if tamanho_max == "invalido" else tamanho_max,
+        None if data_min == "invalido" else data_min,
+        None if data_max == "invalido" else data_max,
+    )
 
 
 def _obter_restricoes_do_tipo(tipo):
     """Retorna restricoes do tipo no formato atual."""
-    restricoes = tipo.get("restricoes", {})
-    if isinstance(restricoes, dict) and restricoes:
-        return restricoes
-    return {}
+    return perfil_manager.obter_restricoes_tipo(tipo)
 
 
 def preencher_formulario_com_tipo(estado_interface, tipo, atualizar_destinos_callback=None):
     """Carrega no painel de restricoes os dados de um tipo selecionado."""
     if tipo is None:
         return ERRO_DADOS_INVALIDOS
-    _preencher_entry(estado_interface["entrada_tipo_nome"], tipo.get("nome", ""))
+    _preencher_entry(estado_interface["entrada_tipo_nome"], perfil_manager.obter_nome_tipo(tipo))
     restricoes = _obter_restricoes_do_tipo(tipo)
-    atualizar_checkboxes_extensoes(estado_interface, restricoes.get("extensoes_permitidas", []))
+    atualizar_checkboxes_extensoes(estado_interface, perfil_manager.obter_extensoes_restricoes(restricoes))
     atualizar_lista_regras_nome(estado_interface, _obter_regras_nome_das_restricoes(restricoes))
-    _preencher_entry(estado_interface["entrada_tamanho_min"], str(restricoes.get("tamanho_min", 0)))
-    tamanho_max = restricoes.get("tamanho_max")
+    _preencher_entry(estado_interface["entrada_tamanho_min"], str(perfil_manager.obter_tamanho_min_restricoes(restricoes)))
+    tamanho_max = perfil_manager.obter_tamanho_max_restricoes(restricoes)
     _preencher_entry(estado_interface["entrada_tamanho_max"], "" if tamanho_max is None else str(tamanho_max))
-    _preencher_entry(estado_interface["entrada_data_min"], restricoes.get("data_modificacao_min") or "")
-    _preencher_entry(estado_interface["entrada_data_max"], restricoes.get("data_modificacao_max") or "")
+    _preencher_entry(estado_interface["entrada_data_min"], perfil_manager.obter_data_min_restricoes(restricoes) or "")
+    _preencher_entry(estado_interface["entrada_data_max"], perfil_manager.obter_data_max_restricoes(restricoes) or "")
     _executar_callback(atualizar_destinos_callback)
     return OK
 

@@ -1,6 +1,8 @@
 ﻿"""Camada de controle entre interface e modulos internos."""
 
-from backupmanager import backup_engine, file_utils, perfil_manager, storage
+from backupmanager.domain import perfil_manager
+from backupmanager.engine import backup_engine, file_utils
+from backupmanager.infra import storage
 from backupmanager.return_codes import (
     OK,
     ERRO_DADOS_INVALIDOS,
@@ -158,10 +160,10 @@ def salvar_perfil_editado(perfil):
     e marca o estado como alterado. Nao persiste JSON; a gravacao fica para
     `finalizar_aplicacao`.
     """
-    if not isinstance(perfil, dict) or not perfil.get("id"):
+    perfil_id = perfil_manager.obter_id_perfil(perfil)
+    if not perfil_id:
         return ERRO_DADOS_INVALIDOS
 
-    perfil_id = perfil["id"]
     codigo, perfil_atual = perfil_manager.consultar_perfil(_ESTADO["perfis"], perfil_id)
     if codigo != OK:
         return codigo
@@ -180,16 +182,27 @@ def salvar_perfil_editado(perfil):
     codigo = perfil_manager.alterar_nome_perfil(
         _ESTADO["perfis"],
         perfil_id,
-        perfil.get("nome", perfil_atual.get("nome", "")),
+        perfil_manager.obter_nome_perfil(perfil) or perfil_manager.obter_nome_perfil(perfil_atual),
     )
     if codigo != OK:
         return codigo
 
     if "origens_configuradas" in perfil:
-        perfil_atual["origens_configuradas"] = perfil["origens_configuradas"]
+        codigo = perfil_manager.alterar_origens_configuradas(
+            _ESTADO["perfis"],
+            perfil_id,
+            perfil["origens_configuradas"],
+        )
+        if codigo != OK:
+            return codigo
 
     if "ativo" in perfil:
-        perfil_atual["ativo"] = perfil["ativo"]
+        if perfil["ativo"]:
+            codigo = perfil_manager.ativar_perfil(_ESTADO["perfis"], perfil_id)
+        else:
+            codigo = perfil_manager.desativar_perfil(_ESTADO["perfis"], perfil_id)
+        if codigo != OK:
+            return codigo
 
     _marcar_estado_alterado()
     return OK
@@ -241,7 +254,7 @@ def executar_backup_do_perfil(perfil_id):
     if codigo != OK:
         return codigo, None
 
-    if not perfil.get("ativo", True):
+    if not perfil_manager.perfil_esta_ativo(perfil):
         return ERRO_PERFIL_INATIVO, None
 
     codigo_backup, resultado = backup_engine.executar_backup(perfil)
@@ -270,22 +283,23 @@ def obter_arquivos_do_perfil_configurado(perfil):
     """
     arquivos = []
 
-    for origem in perfil.get("origens_configuradas", []):
-        if not origem.get("ativo", True):
+    for origem in perfil_manager.obter_origens_configuradas(perfil):
+        if not perfil_manager.origem_esta_ativa(origem):
             continue
-        caminhos = file_utils.listar_arquivos_em_origem(origem.get("caminho"))
+        caminho_origem = perfil_manager.obter_caminho_origem(origem)
+        caminhos = file_utils.listar_arquivos_em_origem(caminho_origem)
         for caminho in caminhos:
             arquivo = file_utils.obter_metadados_arquivo(caminho)
             if arquivo is None:
                 continue
-            arquivo["origem"] = origem.get("caminho")
-            arquivo["tipos_incluidos"] = []
-            for tipo in origem.get("tipos_arquivo", []):
-                if not tipo.get("ativo", True):
+            file_utils.associar_origem_ao_arquivo(arquivo, caminho_origem)
+            file_utils.iniciar_tipos_incluidos_arquivo(arquivo)
+            for tipo in perfil_manager.obter_tipos_origem(origem):
+                if not perfil_manager.tipo_esta_ativo(tipo):
                     continue
-                if file_utils.arquivo_atende_restricoes(arquivo, tipo.get("restricoes", {})):
-                    arquivo["tipos_incluidos"].append(tipo.get("nome", ""))
-            arquivo["incluido"] = bool(arquivo["tipos_incluidos"])
+                if file_utils.arquivo_atende_restricoes(arquivo, perfil_manager.obter_restricoes_tipo(tipo)):
+                    file_utils.adicionar_tipo_incluido_arquivo(arquivo, perfil_manager.obter_nome_tipo(tipo))
+            arquivo["incluido"] = file_utils.arquivo_possui_tipo_incluido(arquivo)
             arquivos.append(arquivo)
 
     return OK, arquivos

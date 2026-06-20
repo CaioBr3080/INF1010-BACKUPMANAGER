@@ -1,60 +1,64 @@
-import unittest
-
-from backupmanager import backup_result
+from backupmanager.domain import backup_result
 from backupmanager.return_codes import OK, ERRO_FALHA_AO_COPIAR
+from tests.assertions import (
+    assert_equal,
+    assert_false,
+    assert_in,
+    assert_is_instance,
+    assert_is_none,
+    assert_is_not_none,
+    assert_not_equal,
+    assert_not_in,
+    assert_true,
+)
 
 
-class TestBackupResult(unittest.TestCase):
-    def test_montar_resultado_backup_cria_contadores_zerados(self):
-        resultado = backup_result.montar_resultado_backup("perfil_001")
+def test_montar_resultado_backup_cria_contadores_zerados():
+    resultado = backup_result.montar_resultado_backup("perfil_001")
 
-        self.assertEqual(resultado["perfil_id"], "perfil_001")
-        self.assertEqual(resultado["status"], "nao_executado")
-        self.assertEqual(resultado["arquivos_processados"], 0)
-        self.assertEqual(resultado["arquivos"], [])
-        self.assertEqual(resultado["erros"], [])
+    assert_equal(resultado["perfil_id"], "perfil_001")
+    assert_equal(resultado["status"], "nao_executado")
+    assert_equal(resultado["arquivos_processados"], 0)
+    assert_equal(resultado["arquivos"], [])
+    assert_equal(resultado["erros"], [])
 
-    def test_aplicar_resultado_arquivo_acumula_contadores_e_listas(self):
-        resultado = backup_result.montar_resultado_backup("perfil_001")
-        resultado_arquivo = {
-            "processado": True,
-            "arquivos_copiados": 1,
-            "arquivos_movidos": 0,
-            "arquivos_recortados": 0,
-            "arquivos": [{"nome": "a.txt"}],
-            "erros": [{"arquivo": "b.txt"}],
-        }
+def test_aplicar_resultado_arquivo_acumula_contadores_e_listas():
+    resultado = backup_result.montar_resultado_backup("perfil_001")
+    resultado_arquivo = {
+        "processado": True,
+        "arquivos_copiados": 1,
+        "arquivos_movidos": 0,
+        "arquivos_recortados": 0,
+        "arquivos": [{"nome": "a.txt"}],
+        "erros": [{"arquivo": "b.txt"}],
+    }
 
-        backup_result.aplicar_resultado_arquivo(resultado, resultado_arquivo)
+    backup_result.aplicar_resultado_arquivo(resultado, resultado_arquivo)
 
-        self.assertEqual(resultado["arquivos_processados"], 1)
-        self.assertEqual(resultado["arquivos_copiados"], 1)
-        self.assertEqual(resultado["arquivos"], [{"nome": "a.txt"}])
-        self.assertEqual(resultado["erros"], [{"arquivo": "b.txt"}])
+    assert_equal(resultado["arquivos_processados"], 1)
+    assert_equal(resultado["arquivos_copiados"], 1)
+    assert_equal(resultado["arquivos"], [{"nome": "a.txt"}])
+    assert_equal(resultado["erros"], [{"arquivo": "b.txt"}])
 
-    def test_montar_registro_arquivo_preserva_metadados(self):
-        arquivo = {
-            "nome": "relatorio.pdf",
-            "extensao": ".pdf",
-            "tipo_nome": "PDFs",
-            "tamanho": 123,
-            "caminho": "C:/Origem/relatorio.pdf",
-        }
+def test_montar_registro_arquivo_preserva_metadados():
+    arquivo = {
+        "nome": "relatorio.pdf",
+        "extensao": ".pdf",
+        "tipo_nome": "PDFs",
+        "tamanho": 123,
+        "caminho": "C:/Origem/relatorio.pdf",
+    }
 
-        registro = backup_result.montar_registro_arquivo(arquivo, "D:/Backup/relatorio.pdf", "copiar", OK)
+    registro = backup_result.montar_registro_arquivo(arquivo, "D:/Backup/relatorio.pdf", "copiar", OK)
 
-        self.assertEqual(registro["nome"], "relatorio.pdf")
-        self.assertEqual(registro["tipo"], "PDFs")
-        self.assertEqual(registro["tamanho"], 123)
-        self.assertEqual(registro["status"], "sucesso")
+    assert_equal(registro["nome"], "relatorio.pdf")
+    assert_equal(registro["tipo"], "PDFs")
+    assert_equal(registro["tamanho"], 123)
+    assert_equal(registro["status"], "sucesso")
 
-    def test_montar_erro_arquivo(self):
-        erro = backup_result.montar_erro_arquivo({"nome": "a.txt"}, "D:/Backup", ERRO_FALHA_AO_COPIAR)
+def test_montar_erro_arquivo():
+    erro = backup_result.montar_erro_arquivo({"nome": "a.txt"}, "D:/Backup", ERRO_FALHA_AO_COPIAR)
 
-        self.assertEqual(erro["arquivo"], "a.txt")
-        self.assertEqual(erro["destino"], "D:/Backup")
-        self.assertEqual(erro["codigo"], ERRO_FALHA_AO_COPIAR)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    assert_equal(erro["arquivo"], "a.txt")
+    assert_equal(erro["destino"], "D:/Backup")
+    assert_equal(erro["codigo"], ERRO_FALHA_AO_COPIAR)

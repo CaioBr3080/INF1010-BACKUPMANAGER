@@ -4,11 +4,11 @@ import customtkinter as ctk
 
 from backupmanager import controller
 from backupmanager.return_codes import OK
-from backupmanager.ui_actions import criar_area_botoes, mostrar_mensagem_resultado, sincronizar_perfil_atual_interface
-from backupmanager.ui_backup_flow import criar_area_origens_destinos, salvar_tipo_selecionado_em_memoria
-from backupmanager.ui_profiles import atualizar_lista_perfis, criar_area_perfis
-from backupmanager.ui_restrictions import criar_area_restricoes
-from backupmanager.ui_theme import (
+from backupmanager.ui.actions import criar_area_botoes, mostrar_mensagem_resultado, sincronizar_perfil_atual_interface
+from backupmanager.ui.backup_flow import criar_area_origens_destinos, salvar_tipo_selecionado_em_memoria
+from backupmanager.ui.profiles import atualizar_lista_perfis, criar_area_perfis
+from backupmanager.ui.restrictions import criar_area_restricoes
+from backupmanager.ui.theme import (
     COR_FUNDO,
     COR_TEXTO,
     COR_TEXTO_FRACO,
@@ -59,7 +59,7 @@ def iniciar_interface():
     ctk.CTkLabel(bloco_titulo, text="BackupManager", text_color=COR_TEXTO, font=FONTE_TITULO).pack(anchor="w")
     ctk.CTkLabel(
         bloco_titulo,
-        text="Perfis, rotinas locais e persistencia em memoria",
+        text="Perfis, rotinas locais e persistência em memória",
         text_color=COR_TEXTO_FRACO,
         font=ctk.CTkFont(family=FONTE_FAMILIA, size=12),
     ).pack(anchor="w", pady=(2, 0))
@@ -70,6 +70,9 @@ def iniciar_interface():
     frame_central = ctk.CTkFrame(janela, fg_color="transparent")
     configurar_frame(frame_central)
     frame_central.pack(fill="both", expand=True, padx=18)
+    frame_central.columnconfigure(0, weight=3)
+    frame_central.columnconfigure(1, weight=2)
+    frame_central.rowconfigure(0, weight=1)
 
     criar_area_origens_destinos(frame_central, estado_interface)
     criar_area_restricoes(

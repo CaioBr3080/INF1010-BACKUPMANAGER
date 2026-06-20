@@ -62,11 +62,11 @@ outros destinos ao mesmo tempo.
 ## Implementado
 
 - Perfil novo nasce com `origens_configuradas: []`.
-- `perfil_manager.py` possui factories para origem, tipo e destino.
-- `backup_engine.py` executa somente o fluxo origem -> tipo -> destino.
-- `backup_validation.py` valida somente perfis no modelo atual.
+- `domain/perfil_manager.py` possui factories para origem, tipo e destino.
+- `engine/backup_engine.py` executa somente o fluxo origem -> tipo -> destino.
+- `domain/backup_validation.py` valida somente perfis no modelo atual.
 - `controller.py` salva e lista arquivos usando `origens_configuradas`.
-- `interface.py` edita origens, tipos, destinos e operacao por destino.
+- `ui/interface.py` edita origens, tipos, destinos e operacao por destino.
 - Regras de nome usam somente `regras_nome`.
 - A execucao automatica foi removida; o backup atual e manual.
 

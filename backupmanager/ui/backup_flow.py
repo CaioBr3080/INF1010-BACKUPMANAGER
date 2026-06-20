@@ -6,13 +6,14 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
+from backupmanager.domain import perfil_manager
 from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS
-from backupmanager.ui_restrictions import (
+from backupmanager.ui.restrictions import (
     criar_restricoes_da_interface,
     limpar_area_tipo_destino,
     preencher_formulario_com_tipo,
 )
-from backupmanager.ui_theme import (
+from backupmanager.ui.theme import (
     COR_AZUL,
     COR_BORDA,
     COR_TEXTO,
@@ -42,13 +43,13 @@ def criar_area_origens_destinos(janela, estado_interface):
     variaveis de operacao em `estado_interface`.
     """
     frame = criar_painel(janela, "Fluxo de backup")
-    frame.pack(fill="both", expand=True, side="left", padx=(0, 4), pady=8)
+    frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4), pady=8)
 
     conteudo = ctk.CTkFrame(frame, fg_color="transparent")
     conteudo.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-    conteudo.columnconfigure(0, weight=1)
-    conteudo.columnconfigure(1, weight=1)
-    conteudo.columnconfigure(2, weight=1)
+    conteudo.columnconfigure(0, weight=4)
+    conteudo.columnconfigure(1, weight=0, minsize=150)
+    conteudo.columnconfigure(2, weight=4)
     conteudo.rowconfigure(0, weight=1)
 
     _criar_coluna_origens(conteudo, estado_interface)
@@ -98,8 +99,9 @@ def _criar_coluna_origens(container, estado_interface):
 
 def _criar_coluna_tipos(container, estado_interface):
     """Cria a coluna de tipos da origem selecionada."""
-    coluna_tipos = ctk.CTkFrame(container, fg_color="transparent")
+    coluna_tipos = ctk.CTkFrame(container, fg_color="transparent", width=150)
     coluna_tipos.grid(row=0, column=1, sticky="nsew", padx=4)
+    coluna_tipos.grid_propagate(False)
     coluna_tipos.columnconfigure(0, weight=1)
     coluna_tipos.rowconfigure(2, weight=1)
     criar_label(coluna_tipos, "Tipos da origem").grid(row=0, column=0, sticky="w")
@@ -164,7 +166,7 @@ def _criar_coluna_destinos(container, estado_interface):
     estado_interface["operacao_var"] = tk.StringVar(value="copiar")
     linha_operacao = ctk.CTkFrame(coluna_destinos, fg_color="transparent")
     linha_operacao.grid(row=3, column=0, sticky="ew", pady=(8, 0))
-    criar_label(linha_operacao, "Operacao").pack(side="left")
+    criar_label(linha_operacao, "Operação").pack(side="left")
     ctk.CTkRadioButton(
         linha_operacao,
         text="Copiar",
@@ -206,12 +208,7 @@ def _adicionar_origem_interface(estado_interface):
     salvar_tipo_selecionado_em_memoria(estado_interface)
     caminho = filedialog.askdirectory(title="Escolha a pasta de origem")
     if caminho:
-        origem = {
-            "id": "origem_" + str(len(estado_interface["origens_configuradas"]) + 1),
-            "caminho": caminho,
-            "ativo": True,
-            "tipos_arquivo": [],
-        }
+        origem = perfil_manager.criar_origem_configurada(caminho)
         estado_interface["origens_configuradas"].append(origem)
         atualizar_lista_origens_configuradas(estado_interface)
         selecionar_origem_por_indice(estado_interface, len(estado_interface["origens_configuradas"]) - 1)
@@ -228,13 +225,10 @@ def _adicionar_destino_interface(estado_interface):
 
     caminho = filedialog.askdirectory(title="Escolha a pasta de destino")
     if caminho:
-        destino = {
-            "caminho": caminho,
-            "operacao": estado_interface["operacao_var"].get(),
-        }
-        tipo.setdefault("destinos", []).append(destino)
+        destino = perfil_manager.criar_destino_tipo(caminho, estado_interface["operacao_var"].get())
+        perfil_manager.adicionar_destino_tipo_configurado(tipo, destino)
         _atualizar_lista_destinos_tipo(estado_interface)
-        _selecionar_destino_por_indice(estado_interface, len(tipo["destinos"]) - 1)
+        _selecionar_destino_por_indice(estado_interface, len(perfil_manager.obter_destinos_tipo(tipo)) - 1)
     return OK
 
 
@@ -246,16 +240,10 @@ def _adicionar_tipo_arquivo_interface(estado_interface):
         messagebox.showwarning("BackupManager", "Selecione uma origem.")
         return ERRO_DADOS_INVALIDOS
 
-    tipo = {
-        "id": "tipo_" + str(len(origem.get("tipos_arquivo", [])) + 1),
-        "nome": "Novo tipo",
-        "ativo": True,
-        "restricoes": criar_restricoes_da_interface(estado_interface),
-        "destinos": [],
-    }
-    origem.setdefault("tipos_arquivo", []).append(tipo)
+    tipo = perfil_manager.criar_tipo_arquivo("Novo tipo", criar_restricoes_da_interface(estado_interface), [])
+    perfil_manager.adicionar_tipo_origem(origem, tipo)
     _atualizar_lista_tipos_origem(estado_interface)
-    _selecionar_tipo_por_indice(estado_interface, len(origem["tipos_arquivo"]) - 1)
+    _selecionar_tipo_por_indice(estado_interface, len(perfil_manager.obter_tipos_origem(origem)) - 1)
     return OK
 
 
@@ -284,9 +272,7 @@ def _remover_tipo_arquivo_interface(estado_interface):
     if origem is None or indice is None:
         return ERRO_DADOS_INVALIDOS
 
-    tipos = origem.get("tipos_arquivo", [])
-    if 0 <= indice < len(tipos):
-        tipos.pop(indice)
+    perfil_manager.remover_tipo_origem_por_indice(origem, indice)
     estado_interface["tipo_selecionado_indice"] = None
     estado_interface["destino_selecionado_indice"] = None
     _atualizar_lista_tipos_origem(estado_interface)
@@ -301,10 +287,8 @@ def _remover_destino_tipo_interface(estado_interface):
     if tipo is None or not selecao:
         return ERRO_DADOS_INVALIDOS
 
-    destinos = tipo.get("destinos", [])
     indice = selecao[0]
-    if 0 <= indice < len(destinos):
-        destinos.pop(indice)
+    perfil_manager.remover_destino_tipo_por_indice(tipo, indice)
     estado_interface["destino_selecionado_indice"] = None
     _atualizar_lista_destinos_tipo(estado_interface)
     return OK
@@ -316,7 +300,7 @@ def _alternar_origem_ativa_interface(estado_interface):
     if origem is None:
         return ERRO_DADOS_INVALIDOS
 
-    origem["ativo"] = not origem.get("ativo", True)
+    perfil_manager.alterar_origem_ativa(origem, not perfil_manager.origem_esta_ativa(origem))
     indice = estado_interface.get("origem_selecionada_indice")
     atualizar_lista_origens_configuradas(estado_interface)
     selecionar_origem_por_indice(estado_interface, indice)
@@ -329,7 +313,7 @@ def _alternar_tipo_ativo_interface(estado_interface):
     if tipo is None:
         return ERRO_DADOS_INVALIDOS
 
-    tipo["ativo"] = not tipo.get("ativo", True)
+    perfil_manager.alterar_tipo_ativo(tipo, not perfil_manager.tipo_esta_ativo(tipo))
     indice = estado_interface.get("tipo_selecionado_indice")
     _atualizar_lista_tipos_origem(estado_interface)
     _selecionar_tipo_por_indice(estado_interface, indice)
@@ -370,7 +354,7 @@ def _abrir_origem_selecionada_interface(estado_interface):
     if origem is None:
         messagebox.showwarning("BackupManager", "Selecione uma pasta de origem.")
         return ERRO_DADOS_INVALIDOS
-    return _abrir_pasta_por_caminho(origem.get("caminho", ""), "origem")
+    return _abrir_pasta_por_caminho(perfil_manager.obter_caminho_origem(origem), "origem")
 
 
 def _abrir_destino_selecionado_interface(estado_interface):
@@ -379,7 +363,7 @@ def _abrir_destino_selecionado_interface(estado_interface):
     if destino is None:
         messagebox.showwarning("BackupManager", "Selecione uma pasta de destino.")
         return ERRO_DADOS_INVALIDOS
-    return _abrir_pasta_por_caminho(destino.get("caminho", ""), "destino")
+    return _abrir_pasta_por_caminho(perfil_manager.obter_caminho_destino(destino), "destino")
 
 
 def atualizar_lista_origens_configuradas(estado_interface):
@@ -392,8 +376,8 @@ def atualizar_lista_origens_configuradas(estado_interface):
     lista = estado_interface["lista_origens"]
     lista.delete(0, tk.END)
     for origem in estado_interface["origens_configuradas"]:
-        marcador = "[x] " if origem.get("ativo", True) else "[ ] "
-        lista.insert(tk.END, marcador + origem.get("caminho", ""))
+        marcador = "[x] " if perfil_manager.origem_esta_ativa(origem) else "[ ] "
+        lista.insert(tk.END, marcador + perfil_manager.obter_caminho_origem(origem))
     return OK
 
 
@@ -405,9 +389,9 @@ def _atualizar_lista_tipos_origem(estado_interface):
     if origem is None:
         return ERRO_DADOS_INVALIDOS
 
-    for tipo in origem.get("tipos_arquivo", []):
-        marcador = "[x] " if tipo.get("ativo", True) else "[ ] "
-        lista.insert(tk.END, marcador + tipo.get("nome", "Sem nome"))
+    for tipo in perfil_manager.obter_tipos_origem(origem):
+        marcador = "[x] " if perfil_manager.tipo_esta_ativo(tipo) else "[ ] "
+        lista.insert(tk.END, marcador + (perfil_manager.obter_nome_tipo(tipo) or "Sem nome"))
     return OK
 
 
@@ -420,8 +404,13 @@ def _atualizar_lista_destinos_tipo(estado_interface):
     if tipo is None:
         return ERRO_DADOS_INVALIDOS
 
-    for destino in tipo.get("destinos", []):
-        lista.insert(tk.END, destino.get("caminho", "") + " | " + destino.get("operacao", "copiar"))
+    for destino in perfil_manager.obter_destinos_tipo(tipo):
+        lista.insert(
+            tk.END,
+            perfil_manager.obter_caminho_destino(destino)
+            + " | "
+            + perfil_manager.obter_operacao_destino(destino),
+        )
     return OK
 
 
@@ -434,7 +423,7 @@ def _selecionar_destino_tipo_interface(estado_interface):
     estado_interface["destino_selecionado_indice"] = selecao[0]
     destino = _obter_destino_selecionado(estado_interface)
     if destino is not None:
-        estado_interface["operacao_var"].set(destino.get("operacao", "copiar"))
+        estado_interface["operacao_var"].set(perfil_manager.obter_operacao_destino(destino))
     return OK
 
 
@@ -455,7 +444,7 @@ def _obter_destino_selecionado(estado_interface):
     indice = estado_interface.get("destino_selecionado_indice")
     if tipo is None or indice is None:
         return None
-    destinos = tipo.get("destinos", [])
+    destinos = perfil_manager.obter_destinos_tipo(tipo)
     if indice < 0 or indice >= len(destinos):
         return None
     return destinos[indice]
@@ -467,7 +456,7 @@ def _atualizar_operacao_destino_interface(estado_interface):
     if destino is None:
         return OK
 
-    destino["operacao"] = estado_interface["operacao_var"].get()
+    perfil_manager.alterar_operacao_destino(destino, estado_interface["operacao_var"].get())
     indice = estado_interface.get("destino_selecionado_indice")
     _atualizar_lista_destinos_tipo(estado_interface)
     _selecionar_destino_por_indice(estado_interface, indice)
@@ -488,7 +477,7 @@ def _selecionar_origem_configurada_interface(estado_interface):
     limpar_area_tipo_destino(estado_interface)
 
     origem = _obter_origem_selecionada(estado_interface)
-    if origem and origem.get("tipos_arquivo"):
+    if origem and perfil_manager.origem_possui_tipos(origem):
         _selecionar_tipo_por_indice(estado_interface, 0)
     return OK
 
@@ -551,7 +540,7 @@ def _obter_tipo_selecionado(estado_interface):
     indice = estado_interface.get("tipo_selecionado_indice")
     if origem is None or indice is None:
         return None
-    tipos = origem.get("tipos_arquivo", [])
+    tipos = perfil_manager.obter_tipos_origem(origem)
     if indice < 0 or indice >= len(tipos):
         return None
     return tipos[indice]
@@ -570,7 +559,7 @@ def salvar_tipo_selecionado_em_memoria(estado_interface):
 
     nome = estado_interface["entrada_tipo_nome"].get().strip()
     if nome:
-        tipo["nome"] = nome
-    tipo["restricoes"] = criar_restricoes_da_interface(estado_interface)
+        perfil_manager.alterar_nome_tipo(tipo, nome)
+    perfil_manager.alterar_restricoes_tipo(tipo, criar_restricoes_da_interface(estado_interface))
     return OK
 

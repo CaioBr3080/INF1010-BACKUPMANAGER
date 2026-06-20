@@ -14,20 +14,20 @@ removidos do projeto para manter a aplicacao focada e simples.
 
 ## Modulos
 
-- `interface.py`: fachada da interface grafica e composicao da tela.
-- `ui_profiles.py`: painel de perfis, criacao, selecao e exclusao.
-- `ui_backup_flow.py`: origens, tipos, destinos e operacao por destino.
-- `ui_restrictions.py`: extensoes, regras de nome, tamanho e datas.
-- `ui_actions.py`: botoes principais, sincronizacao do formulario e backup em thread.
-- `ui_converters.py`: conversores simples de inteiro e data.
-- `ui_theme.py`: cores, fontes, widgets e comportamento de janelas.
+- `ui/interface.py`: fachada da interface grafica e composicao da tela.
+- `ui/profiles.py`: painel de perfis, criacao, selecao e exclusao.
+- `ui/backup_flow.py`: origens, tipos, destinos e operacao por destino.
+- `ui/restrictions.py`: extensoes, regras de nome, tamanho e datas.
+- `ui/actions.py`: botoes principais, sincronizacao do formulario e backup em thread.
+- `ui/converters.py`: conversores simples de inteiro e data.
+- `ui/theme.py`: cores, fontes, widgets e comportamento de janelas.
 - `controller.py`: fachada entre UI, persistencia, perfis e motor de backup.
-- `perfil_manager.py`: TAD de perfis e factories do modelo atual.
-- `backup_engine.py`: orquestracao da execucao de backup.
-- `backup_validation.py`: validacao do modelo origem -> tipo -> destino.
-- `backup_result.py`: montagem e acumulacao de resultados da execucao.
-- `file_utils.py`: operacoes de caminho, listagem, metadados e filtros.
-- `storage.py`: persistencia de `perfis.json` e `config.json`.
+- `domain/perfil_manager.py`: TAD de perfis e factories do modelo atual.
+- `engine/backup_engine.py`: orquestracao da execucao de backup.
+- `domain/backup_validation.py`: validacao do modelo origem -> tipo -> destino.
+- `domain/backup_result.py`: montagem e acumulacao de resultados da execucao.
+- `engine/file_utils.py`: operacoes de caminho, listagem, metadados e filtros.
+- `infra/storage.py`: persistencia de `perfis.json` e `config.json`.
 - `return_codes.py`: codigos de retorno e mensagens.
 
 ## Persistencia

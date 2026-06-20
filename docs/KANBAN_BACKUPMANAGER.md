@@ -10,7 +10,7 @@ removidos.
 
 - Modelo unico `origens_configuradas -> tipos_arquivo -> destinos`.
 - Remocao de compatibilidade com perfil antigo.
-- Interface modularizada em `ui_*`.
+- Interface modularizada em `backupmanager/ui`.
 - Filtros por extensao, nome, tamanho e data.
 - Operacao por destino: `copiar`, `mover`, `recortar`.
 - Backup ignora arquivos em subpastas da origem.
@@ -37,5 +37,5 @@ publicos sempre que possivel.
 
 ### BM-ENG-01 - Separar Operacoes De Disco
 
-Se `backup_engine.py` voltar a crescer, extrair copia/movimento/recorte para
+Se `engine/backup_engine.py` voltar a crescer, extrair copia/movimento/recorte para
 um modulo dedicado de operacoes.

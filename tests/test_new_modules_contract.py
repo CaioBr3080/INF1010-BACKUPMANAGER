@@ -1,38 +1,33 @@
-import unittest
-
-from backupmanager import (
-    backup_result,
-    backup_validation,
-    ui_actions,
-    ui_backup_flow,
-    ui_converters,
-    ui_profiles,
-    ui_restrictions,
-    ui_theme,
+from backupmanager.domain import backup_result, backup_validation
+from backupmanager.ui import actions, backup_flow, converters, profiles, restrictions, theme
+from tests.assertions import (
+    assert_equal,
+    assert_false,
+    assert_in,
+    assert_is_instance,
+    assert_is_none,
+    assert_is_not_none,
+    assert_not_equal,
+    assert_not_in,
+    assert_true,
 )
 
 
-class TestNewModulesContract(unittest.TestCase):
-    def test_modulos_novos_declararam_api_publica(self):
-        modulos = [
-            backup_result,
-            backup_validation,
-            ui_actions,
-            ui_backup_flow,
-            ui_converters,
-            ui_profiles,
-            ui_restrictions,
-            ui_theme,
-        ]
+def test_modulos_novos_declararam_api_publica():
+    modulos = [
+        backup_result,
+        backup_validation,
+        actions,
+        backup_flow,
+        converters,
+        profiles,
+        restrictions,
+        theme,
+    ]
 
-        for modulo in modulos:
-            with self.subTest(modulo=modulo.__name__):
-                self.assertTrue(hasattr(modulo, "__all__"))
-                self.assertTrue(modulo.__all__)
-                for nome in modulo.__all__:
-                    self.assertFalse(nome.startswith("_"), nome)
-                    self.assertTrue(hasattr(modulo, nome), nome)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    for modulo in modulos:
+        assert_true(hasattr(modulo, "__all__"), modulo.__name__)
+        assert_true(modulo.__all__, modulo.__name__)
+        for nome in modulo.__all__:
+            assert_false(nome.startswith("_"), nome)
+            assert_true(hasattr(modulo, nome), nome)
