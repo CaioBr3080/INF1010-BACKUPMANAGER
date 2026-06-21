@@ -244,10 +244,7 @@ def _adicionar_regra_nome_interface(estado_interface, ao_alterar_restricoes=None
         return ERRO_DADOS_INVALIDOS
 
     regras = _obter_regras_nome_interface(estado_interface)
-    regra = {
-        "valor": valor,
-        "modo": _obter_modo_regra_nome_interface(estado_interface),
-    }
+    regra = perfil_manager.criar_regra_nome(valor, _obter_modo_regra_nome_interface(estado_interface))
     if regra not in regras:
         regras.append(regra)
 
@@ -303,15 +300,15 @@ def _normalizar_regras_nome_interface(regras):
 
     normalizadas = []
     for regra in regras:
-        if not isinstance(regra, dict):
-            continue
-        valor = regra.get("valor", "")
+        valor = perfil_manager.obter_valor_regra_nome(regra)
         if not isinstance(valor, str) or not valor.strip():
             continue
-        modo = regra.get("modo", "contem")
-        if modo not in ("contem", "exato"):
-            modo = "contem"
-        normalizadas.append({"valor": valor.strip(), "modo": modo})
+        normalizadas.append(
+            perfil_manager.criar_regra_nome(
+                valor.strip(),
+                perfil_manager.obter_modo_regra_nome(regra),
+            )
+        )
     return normalizadas
 
 
@@ -330,8 +327,8 @@ def _obter_modo_regra_nome_interface(estado_interface):
 
 def _formatar_regra_nome_interface(regra):
     """Formata uma regra de nome para exibicao em listbox."""
-    rotulo = "Nome completo" if regra.get("modo") == "exato" else "Contém"
-    return rotulo + ": " + regra.get("valor", "")
+    rotulo = "Nome completo" if perfil_manager.obter_modo_regra_nome(regra) == "exato" else "Contém"
+    return rotulo + ": " + perfil_manager.obter_valor_regra_nome(regra)
 
 
 def criar_restricoes_da_interface(estado_interface):

@@ -15,6 +15,8 @@ __all__ = [
     "criar_destino_tipo",
     "criar_tipo_arquivo",
     "criar_origem_configurada",
+    "criar_regra_nome",
+    "criar_edicao_perfil",
     "validar_nome_perfil",
     "criar_perfil",
     "consultar_perfil",
@@ -62,6 +64,8 @@ __all__ = [
     "obter_tamanho_max_restricoes",
     "obter_data_min_restricoes",
     "obter_data_max_restricoes",
+    "obter_valor_regra_nome",
+    "obter_modo_regra_nome",
 ]
 
 
@@ -96,6 +100,25 @@ def criar_restricoes(extensoes, regras_nome, tamanho_min, tamanho_max, data_min,
         "tamanho_max": tamanho_max,
         "data_modificacao_min": data_min,
         "data_modificacao_max": data_max,
+    }
+
+
+def criar_regra_nome(valor, modo="contem"):
+    """Cria uma regra de nome para restricoes de tipo.
+
+    `valor` e o texto comparado com o nome do arquivo. `modo` pode ser
+    `contem`, para aceitar nomes que contenham o trecho, ou `exato`, para
+    comparar com o nome completo. Modos desconhecidos sao normalizados para
+    `contem`. A funcao centraliza a estrutura interna da subestrutura Regra de
+    nome, evitando que UI e engine montem o dicionario diretamente.
+    """
+    if not isinstance(valor, str):
+        valor = ""
+    if modo not in ("contem", "exato"):
+        modo = "contem"
+    return {
+        "valor": valor,
+        "modo": modo,
     }
 
 
@@ -188,6 +211,26 @@ def criar_perfil(nome):
         "ativo": True,
     }
     return OK, perfil
+
+
+def criar_edicao_perfil(perfil_id, nome=None, origens_configuradas=None, ativo=None):
+    """Cria uma estrutura de edicao parcial para o TAD Perfil.
+
+    Usada por UI/controller quando precisam pedir alteracoes no perfil sem
+    conhecer diretamente as chaves internas persistidas. O `perfil_id` sempre
+    identifica o alvo da edicao; `nome`, `origens_configuradas` e `ativo` sao
+    opcionais e entram somente quando informados.
+    """
+    edicao = {"id": perfil_id}
+
+    if nome is not None:
+        edicao["nome"] = nome
+    if origens_configuradas is not None:
+        edicao["origens_configuradas"] = origens_configuradas
+    if ativo is not None:
+        edicao["ativo"] = ativo
+
+    return edicao
 
 
 def consultar_perfil(perfis, perfil_id):
@@ -649,5 +692,33 @@ def obter_data_max_restricoes(restricoes):
     if not restricoes_e_valida(restricoes):
         return None
     return restricoes.get("data_modificacao_max")
+
+
+def obter_valor_regra_nome(regra):
+    """Retorna o valor textual de uma regra de nome.
+
+    Esta e a funcao de acesso para o campo de texto da subestrutura Regra de
+    nome. Entradas invalidas ou valores nao textuais retornam string vazia.
+    """
+    if not isinstance(regra, dict):
+        return ""
+    valor = regra.get("valor", "")
+    if not isinstance(valor, str):
+        return ""
+    return valor
+
+
+def obter_modo_regra_nome(regra):
+    """Retorna o modo normalizado de uma regra de nome.
+
+    Modos validos: `contem` e `exato`. Entradas invalidas ou valores
+    desconhecidos retornam `contem`, que e o comportamento padrao.
+    """
+    if not isinstance(regra, dict):
+        return "contem"
+    modo = regra.get("modo", "contem")
+    if modo not in ("contem", "exato"):
+        return "contem"
+    return modo
 
 

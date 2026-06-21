@@ -12,6 +12,7 @@ from backupmanager.return_codes import (
 __all__ = [
     "validar_perfil_para_backup",
     "validar_perfil_configurado_para_backup",
+    "validar_lista_destinos",
     "validar_destinos_do_tipo",
 ]
 
@@ -68,11 +69,23 @@ def validar_perfil_configurado_para_backup(perfil):
 def validar_destinos_do_tipo(tipo):
     """Valida a lista de destinos de um tipo de arquivo.
 
+    Extrai os destinos pelo acessor do TAD Tipo e delega a validacao para
+    `validar_lista_destinos`, evitando que outros modulos precisem conhecer
+    a estrutura interna do tipo.
+    """
+    return validar_lista_destinos(perfil_manager.obter_destinos_tipo(tipo))
+
+
+def validar_lista_destinos(destinos):
+    """Valida uma lista de destinos sem exigir um TAD Tipo completo.
+
     Cada destino precisa ter caminho e operacao valida. Operacoes de remocao
     (`mover` ou `recortar`) nao podem coexistir com multiplos destinos, pois a
     origem deixaria de existir apos a primeira remocao.
     """
-    destinos = perfil_manager.obter_destinos_tipo(tipo)
+    if not isinstance(destinos, list):
+        return ERRO_DADOS_INVALIDOS
+
     operacoes_remocao = []
 
     for destino in destinos:

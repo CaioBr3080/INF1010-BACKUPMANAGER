@@ -1,4 +1,4 @@
-from backupmanager.domain import backup_validation
+from backupmanager.domain import backup_validation, perfil_manager
 from backupmanager.return_codes import (
     OK,
     ERRO_DADOS_INVALIDOS,
@@ -47,22 +47,28 @@ def test_validar_perfil_configurado_rejeita_sem_origem():
 
 def test_validar_destinos_do_tipo_rejeita_destino_invalido():
     assert_equal(
-        backup_validation.validar_destinos_do_tipo({"destinos": [{"operacao": "copiar"}]}),
+        backup_validation.validar_lista_destinos([perfil_manager.criar_destino_tipo("", "copiar")]),
         ERRO_DESTINO_INVALIDO,
     )
 
 def test_validar_destinos_do_tipo_rejeita_operacao_invalida():
     assert_equal(
-        backup_validation.validar_destinos_do_tipo({"destinos": [{"caminho": "D:/", "operacao": "zip"}]}),
+        backup_validation.validar_lista_destinos([perfil_manager.criar_destino_tipo("D:/", "zip")]),
         ERRO_OPERACAO_INVALIDA,
     )
 
-def test_validar_destinos_do_tipo_rejeita_mover_com_multiplos_destinos():
-    tipo = {
-        "destinos": [
-            {"caminho": "D:/A", "operacao": "mover"},
-            {"caminho": "D:/B", "operacao": "copiar"},
-        ]
-    }
+def test_validar_lista_destinos_rejeita_mover_com_multiplos_destinos():
+    destinos = [
+        perfil_manager.criar_destino_tipo("D:/A", "mover"),
+        perfil_manager.criar_destino_tipo("D:/B", "copiar"),
+    ]
 
-    assert_equal(backup_validation.validar_destinos_do_tipo(tipo), ERRO_OPERACAO_INVALIDA)
+    assert_equal(backup_validation.validar_lista_destinos(destinos), ERRO_OPERACAO_INVALIDA)
+
+def test_validar_destinos_do_tipo_delega_para_lista_do_tipo():
+    tipo = perfil_manager.criar_tipo_arquivo(
+        "PDF",
+        destinos=[perfil_manager.criar_destino_tipo("D:/Backup", "copiar")],
+    )
+
+    assert_equal(backup_validation.validar_destinos_do_tipo(tipo), OK)

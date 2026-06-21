@@ -324,25 +324,25 @@ def _normalizar_regras_nome(restricoes):
 
     normalizadas = []
     for regra in regras:
-        if not isinstance(regra, dict):
-            continue
-        valor = regra.get("valor", "")
+        valor = perfil_manager.obter_valor_regra_nome(regra)
         if not isinstance(valor, str) or not valor.strip():
             continue
-        modo = regra.get("modo", "contem")
-        if modo not in ("contem", "exato"):
-            modo = "contem"
-        normalizadas.append({"valor": valor.strip(), "modo": modo})
+        normalizadas.append(
+            perfil_manager.criar_regra_nome(
+                valor.strip(),
+                perfil_manager.obter_modo_regra_nome(regra),
+            )
+        )
     return normalizadas
 
 
 def _nome_atende_regra(nome, regra):
     """Indica se o nome atende uma regra normalizada."""
     nome_normalizado = nome.strip().lower()
-    valor = regra.get("valor", "").strip().lower()
+    valor = perfil_manager.obter_valor_regra_nome(regra).strip().lower()
     if not valor:
         return True
-    if regra.get("modo") == "exato":
+    if perfil_manager.obter_modo_regra_nome(regra) == "exato":
         nome_sem_extensao = Path(nome_normalizado).stem
         return nome_normalizado == valor or nome_sem_extensao == valor
     return valor in nome_normalizado

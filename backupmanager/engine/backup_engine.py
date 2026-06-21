@@ -139,7 +139,7 @@ def _processar_arquivo_para_destinos(arquivo, destinos, operacao):
 
 def _processar_arquivo_para_destinos_configurados(arquivo, destinos, tipo):
     """Processa arquivo usando destinos com operacao individual."""
-    codigo = backup_validation.validar_destinos_do_tipo({"destinos": destinos})
+    codigo = backup_validation.validar_lista_destinos(destinos)
     if codigo != OK:
         resultado_erro = backup_result.montar_resultado_arquivo()
         backup_result.definir_codigo_resultado_arquivo(resultado_erro, codigo)

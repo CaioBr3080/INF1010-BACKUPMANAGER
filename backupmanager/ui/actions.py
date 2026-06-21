@@ -252,12 +252,12 @@ def _obter_dados_formulario(estado_interface):
     ):
         return None
 
-    return {
-        "id": perfil_id,
-        "nome": estado_interface["entrada_nome"].get(),
-        "origens_configuradas": estado_interface["origens_configuradas"],
-        "ativo": estado_interface["ativo_var"].get(),
-    }
+    return perfil_manager.criar_edicao_perfil(
+        perfil_id,
+        estado_interface["entrada_nome"].get(),
+        estado_interface["origens_configuradas"],
+        estado_interface["ativo_var"].get(),
+    )
 
 
 def _montar_origens_configuradas_para_interface(perfil):

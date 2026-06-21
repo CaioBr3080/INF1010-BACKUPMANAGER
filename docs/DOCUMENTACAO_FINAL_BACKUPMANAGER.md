@@ -635,6 +635,18 @@ TADs/obrigações do módulo: Perfil, Origem configurada, Tipo de arquivo, Desti
     - `ERRO_DESTINO_INVALIDO`: destino ausente, vazio ou estruturalmente inválido.
 - TADs envolvidos: Perfil, Origem configurada, Tipo de arquivo, Destino do tipo.
 
+#### `validar_lista_destinos(destinos)`
+- Visibilidade: pública.
+- Objetivo: Valida diretamente uma lista de TADs Destino sem exigir que o chamador monte um TAD Tipo artificial.
+- Parâmetros:
+    - `destinos`: lista de TADs Destino do tipo, cada um com caminho e operação.
+- Possíveis retornos:
+    - `OK`: destinos válidos.
+    - `ERRO_DADOS_INVALIDOS`: entrada não é uma lista.
+    - `ERRO_OPERACAO_INVALIDA`: operação diferente de copiar/mover/recortar ou conflito de remoção.
+    - `ERRO_DESTINO_INVALIDO`: destino ausente, vazio ou estruturalmente inválido.
+- TADs envolvidos: Destino do tipo.
+
 ### Módulo `perfil_manager.py`
 
 Resumo: Funções para criar, consultar e alterar perfis de backup.
@@ -663,6 +675,16 @@ TADs/obrigações do módulo: Perfil, Origem configurada, Tipo de arquivo, Desti
 - Possíveis retornos:
     - `{'extensoes_permitidas': extensoes if isinstance(extensoes, list) else [], 'regras_nome': regras_nome if isinstance(regras_nome, list) else [], 'tamanho_min': tamanho_min, 'tamanho_max': tamanho_max, 'data_modificacao_min': data_min, 'data_modificacao_max': data_max}`: novo dicionário/TAD montado pela função.
 - TADs envolvidos: Perfil, Origem configurada, Tipo de arquivo, Destino do tipo, Restrições.
+
+#### `criar_regra_nome(valor, modo='contem')`
+- Visibilidade: pública.
+- Objetivo: Cria a subestrutura Regra de nome usada dentro do TAD Restrições.
+- Parâmetros:
+    - `valor`: texto comparado com o nome do arquivo.
+    - `modo`: modo de comparação; `contem` para trecho no nome ou `exato` para nome completo.
+- Possíveis retornos:
+    - TAD Regra de nome normalizado.
+- TADs envolvidos: Restrições, Regra de nome.
 
 #### `criar_destino_tipo(caminho, operacao='copiar')`
 - Visibilidade: pública.
@@ -722,6 +744,18 @@ TADs/obrigações do módulo: Perfil, Origem configurada, Tipo de arquivo, Desti
     - `(OK, perfil)`: tupla de retorno; normalmente combina código e dado/resultado.
     - `(codigo, None)`: tupla de retorno; normalmente combina código e dado/resultado.
 - TADs envolvidos: Perfil, Origem configurada, Tipo de arquivo, Destino do tipo, Restrições.
+
+#### `criar_edicao_perfil(perfil_id, nome=None, origens_configuradas=None, ativo=None)`
+- Visibilidade: pública.
+- Objetivo: Cria uma estrutura de edição parcial de Perfil sem expor chaves internas para UI ou controller.
+- Parâmetros:
+    - `perfil_id`: identificador único do perfil a editar.
+    - `nome`: novo nome do perfil, opcional.
+    - `origens_configuradas`: lista completa de TADs Origem, opcional.
+    - `ativo`: estado ativo/inativo do perfil, opcional.
+- Possíveis retornos:
+    - TAD Perfil parcial usado como pedido de edição.
+- TADs envolvidos: Perfil.
 
 #### `consultar_perfil(perfis, perfil_id)`
 - Visibilidade: pública.
@@ -1185,6 +1219,26 @@ TADs/obrigações do módulo: Perfil, Origem configurada, Tipo de arquivo, Desti
     - `restricoes.get('data_modificacao_max')`: retorno delegado para outra função.
     - `None`: ausência válida de dado ou falha sem objeto retornável.
 - TADs envolvidos: Perfil, Origem configurada, Tipo de arquivo, Destino do tipo, Restrições.
+
+#### `obter_valor_regra_nome(regra)`
+- Visibilidade: pública.
+- Objetivo: Retorna o texto de comparação de uma Regra de nome sem expor sua chave interna.
+- Parâmetros:
+    - `regra`: TAD Regra de nome armazenado dentro de Restrições.
+- Possíveis retornos:
+    - string com o valor da regra.
+    - `''`: entrada inválida ou valor não textual.
+- TADs envolvidos: Restrições, Regra de nome.
+
+#### `obter_modo_regra_nome(regra)`
+- Visibilidade: pública.
+- Objetivo: Retorna o modo normalizado de uma Regra de nome.
+- Parâmetros:
+    - `regra`: TAD Regra de nome armazenado dentro de Restrições.
+- Possíveis retornos:
+    - `contem`: modo padrão ou regra de trecho no nome.
+    - `exato`: regra de nome completo.
+- TADs envolvidos: Restrições, Regra de nome.
 
 ## Pasta `backupmanager/engine`
 

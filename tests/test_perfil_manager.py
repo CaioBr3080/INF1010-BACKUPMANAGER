@@ -64,6 +64,29 @@ def test_funcoes_de_acesso_do_perfil():
     assert_equal(perfil_manager.obter_origens_configuradas(perfil), [])
     assert_false(perfil_manager.perfil_possui_origens_configuradas(perfil))
 
+def test_criar_edicao_perfil_monta_edicao_parcial():
+    edicao = perfil_manager.criar_edicao_perfil(
+        "perfil_001",
+        nome="Backup Editado",
+        ativo=False,
+    )
+
+    assert_equal(perfil_manager.obter_id_perfil(edicao), "perfil_001")
+    assert_equal(perfil_manager.obter_nome_perfil(edicao), "Backup Editado")
+    assert_false(perfil_manager.perfil_esta_ativo(edicao))
+    assert_equal(perfil_manager.obter_origens_configuradas(edicao), [])
+
+def test_criar_regra_nome_e_acessores_normalizam_modo():
+    regra = perfil_manager.criar_regra_nome("relatorio", "exato")
+    regra_modo_invalido = perfil_manager.criar_regra_nome("nota", "qualquer")
+
+    assert_equal(perfil_manager.obter_valor_regra_nome(regra), "relatorio")
+    assert_equal(perfil_manager.obter_modo_regra_nome(regra), "exato")
+    assert_equal(perfil_manager.obter_valor_regra_nome(regra_modo_invalido), "nota")
+    assert_equal(perfil_manager.obter_modo_regra_nome(regra_modo_invalido), "contem")
+    assert_equal(perfil_manager.obter_valor_regra_nome(None), "")
+    assert_equal(perfil_manager.obter_modo_regra_nome(None), "contem")
+
 def test_aplicar_edicao_perfil_altera_campos_por_funcoes_do_tad():
     codigo, perfil = perfil_manager.criar_perfil("Backup Original")
     origem = perfil_manager.criar_origem_configurada("C:/origem")
