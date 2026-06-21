@@ -24,6 +24,7 @@ __all__ = [
     "perfil_esta_ativo",
     "obter_origens_configuradas",
     "perfil_possui_origens_configuradas",
+    "aplicar_edicao_perfil",
     "alterar_nome_perfil",
     "alterar_origens_configuradas",
     "excluir_perfil",
@@ -268,6 +269,58 @@ def obter_origens_configuradas(perfil):
 def perfil_possui_origens_configuradas(perfil):
     """Indica se um perfil possui ao menos uma origem configurada."""
     return bool(obter_origens_configuradas(perfil))
+
+
+def aplicar_edicao_perfil(perfis, perfil_editado):
+    """Aplica alteracoes em um perfil preservando o encapsulamento do TAD.
+
+    Recebe a colecao de perfis administrada pelo controller e um perfil
+    editado parcial ou completo. A funcao valida e aplica apenas os campos
+    conhecidos do TAD Perfil (`id`, `nome`, `origens_configuradas` e `ativo`)
+    sem expor essas chaves para outros modulos. Retorna `OK` quando a edicao
+    foi incorporada em memoria, `ERRO_DADOS_INVALIDOS` para formato invalido
+    ou o codigo de perfil inexistente devolvido por `consultar_perfil`.
+    """
+    if not isinstance(perfil_editado, dict):
+        return ERRO_DADOS_INVALIDOS
+
+    perfil_id = obter_id_perfil(perfil_editado)
+    if not perfil_id:
+        return ERRO_DADOS_INVALIDOS
+
+    codigo, perfil_atual = consultar_perfil(perfis, perfil_id)
+    if codigo != OK:
+        return codigo
+
+    if "nome" in perfil_editado:
+        codigo = alterar_nome_perfil(perfis, perfil_id, obter_nome_perfil(perfil_editado))
+        if codigo != OK:
+            return codigo
+    else:
+        nome_atual = obter_nome_perfil(perfil_atual)
+        if nome_atual:
+            codigo = alterar_nome_perfil(perfis, perfil_id, nome_atual)
+            if codigo != OK:
+                return codigo
+
+    if "origens_configuradas" in perfil_editado:
+        origens = perfil_editado.get("origens_configuradas")
+        codigo = alterar_origens_configuradas(perfis, perfil_id, origens)
+        if codigo != OK:
+            return codigo
+
+    if "ativo" in perfil_editado:
+        ativo = perfil_editado.get("ativo")
+        if not isinstance(ativo, bool):
+            return ERRO_DADOS_INVALIDOS
+        if ativo:
+            codigo = ativar_perfil(perfis, perfil_id)
+        else:
+            codigo = desativar_perfil(perfis, perfil_id)
+        if codigo != OK:
+            return codigo
+
+    return OK
 
 
 def alterar_nome_perfil(perfis, perfil_id, novo_nome):

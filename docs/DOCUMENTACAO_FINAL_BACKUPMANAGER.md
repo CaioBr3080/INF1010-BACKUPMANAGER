@@ -96,7 +96,7 @@ Os códigos de retorno padronizados ficam em `backupmanager/return_codes.py`. El
 
 1. Entrada: `main.main()` chama `ui.interface.iniciar_interface()`.
 
-2. Inicialização: a UI chama `controller.inicializar_aplicacao()`, que pede a `infra/storage.py` para criar/carregar JSONs e popula o TAD Estado da aplicação.
+2. Inicialização: a UI chama `controller.inicializar_aplicacao()`, que pede a `infra/storage.py` para carregar JSONs ou devolver valores padrao em memoria quando eles nao existem. A inicializacao nao cria nem grava JSONs.
 
 3. Edição visual: `ui.profiles`, `ui.backup_flow` e `ui.restrictions` manipulam o TAD Estado da interface e criam/alteram Perfil, Origem, Tipo, Destino e Restrições por funções de `perfil_manager`.
 
@@ -122,6 +122,8 @@ Os códigos de retorno padronizados ficam em `backupmanager/return_codes.py`. El
 
 - A auditoria textual não encontrou acesso direto a `perfil.get`, `origem.get`, `tipo.get`, `destino.get`, `restricoes.get`, `resultado.get` ou `arquivo.get` fora dos módulos donos dos TADs.
 
+- A auditoria textual tambem nao encontrou escrita direta em `perfil[...]` fora de `domain/perfil_manager.py` nem escrita direta em `arquivo[...]` fora de `engine/file_utils.py`.
+
 - Exceção controlada: `estado_interface` e `_ESTADO` são TADs locais administrados pelos próprios módulos da UI/controller.
 
 
@@ -145,12 +147,11 @@ TADs/obrigações do módulo: Estado da aplicação (_ESTADO), Perfil, Configura
 
 #### `inicializar_aplicacao()`
 - Visibilidade: pública.
-- Objetivo: Inicializa o estado em memória da aplicação.
+- Objetivo: Inicializa o estado em memória da aplicação lendo JSONs existentes ou usando valores padrao em memoria quando eles nao existem.
 - Parâmetros:
     - nenhum parâmetro.
 - Possíveis retornos:
     - `OK`: sucesso da operação.
-    - `codigo_padrao`: código de retorno propagado de chamada interna.
     - `codigo_perfis`: código de retorno propagado de chamada interna.
     - `codigo_config`: código de retorno propagado de chamada interna.
 - TADs envolvidos: Estado da aplicação (_ESTADO), Perfil, Configurações, Resultado de backup, Metadados de arquivo.
@@ -195,7 +196,7 @@ TADs/obrigações do módulo: Estado da aplicação (_ESTADO), Perfil, Configura
 
 #### `salvar_perfil_editado(perfil)`
 - Visibilidade: pública.
-- Objetivo: Aplica ao estado em memória os dados editados de um perfil.
+- Objetivo: Aplica ao estado em memória os dados editados de um perfil delegando a mutacao do TAD Perfil para `perfil_manager.aplicar_edicao_perfil`.
 - Parâmetros:
     - `perfil`: TAD Perfil, dicionário persistido com id, nome, ativo e origens configuradas.
 - Possíveis retornos:
@@ -789,6 +790,19 @@ TADs/obrigações do módulo: Perfil, Origem configurada, Tipo de arquivo, Desti
     - `perfil`: TAD Perfil, dicionário persistido com id, nome, ativo e origens configuradas.
 - Possíveis retornos:
     - `bool(obter_origens_configuradas(perfil))`: booleano calculado pela condição.
+- TADs envolvidos: Perfil, Origem configurada, Tipo de arquivo, Destino do tipo, Restrições.
+
+#### `aplicar_edicao_perfil(perfis, perfil_editado)`
+- Visibilidade: pública.
+- Objetivo: Aplica alterações em um perfil existente sem expor as chaves internas do TAD Perfil ao controller ou à interface.
+- Parâmetros:
+    - `perfis`: coleção em memória de TADs Perfil administrada pelo controller.
+    - `perfil_editado`: TAD Perfil parcial ou completo contendo ao menos o identificador do perfil e, opcionalmente, nome, origens configuradas e estado ativo.
+- Possíveis retornos:
+    - `OK`: edição aplicada em memória.
+    - `ERRO_DADOS_INVALIDOS`: entrada sem id, formato inválido, lista de origens inválida ou estado ativo/inativo inválido.
+    - `ERRO_PERFIL_NAO_ENCONTRADO`: identificador não pertence à coleção recebida.
+    - `ERRO_NOME_INVALIDO`: nome informado não pode ser usado.
 - TADs envolvidos: Perfil, Origem configurada, Tipo de arquivo, Destino do tipo, Restrições.
 
 #### `alterar_nome_perfil(perfis, perfil_id, novo_nome)`
@@ -1517,6 +1531,17 @@ TADs/obrigações do módulo: Metadados de arquivo, Restrições, Regra de nome.
 - Possíveis retornos:
     - `bool(arquivo.get('tipos_incluidos', []))`: booleano calculado pela condição.
     - `False`: condição rejeitada/falsa.
+- TADs envolvidos: Metadados de arquivo, Restrições, Regra de nome.
+
+#### `definir_incluido_arquivo(arquivo, incluido)`
+- Visibilidade: pública.
+- Objetivo: Define se um TAD Metadados de Arquivo está incluído na pré-visualização do backup sem expor o campo interno `incluido` a outros módulos.
+- Parâmetros:
+    - `arquivo`: TAD Metadados de Arquivo.
+    - `incluido`: valor convertido para booleano e armazenado como estado de inclusão.
+- Possíveis retornos:
+    - `OK`: estado de inclusão definido.
+    - `ERRO_DADOS_INVALIDOS`: entrada não representa metadados de arquivo.
 - TADs envolvidos: Metadados de arquivo, Restrições, Regra de nome.
 
 #### `arquivo_atende_restricoes(arquivo, restricoes)`

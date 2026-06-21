@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 from backupmanager.domain import perfil_manager
+from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS
 
 __all__ = [
     "caminho_existe",
@@ -25,6 +26,7 @@ __all__ = [
     "iniciar_tipos_incluidos_arquivo",
     "adicionar_tipo_incluido_arquivo",
     "arquivo_possui_tipo_incluido",
+    "definir_incluido_arquivo",
     "arquivo_atende_restricoes",
     "verificar_permissao_leitura",
     "verificar_permissao_escrita",
@@ -240,6 +242,20 @@ def arquivo_possui_tipo_incluido(arquivo):
     if not arquivo_e_valido(arquivo):
         return False
     return bool(arquivo.get("tipos_incluidos", []))
+
+
+def definir_incluido_arquivo(arquivo, incluido):
+    """Define o estado de inclusao de um arquivo de pre-visualizacao.
+
+    Esta e a funcao publica para alterar o campo `incluido` do TAD Arquivo.
+    Recebe o dicionario de metadados e um valor interpretavel como booleano,
+    grava `True` ou `False` internamente e retorna `OK`. Entradas que nao sao
+    metadados validos retornam `ERRO_DADOS_INVALIDOS`.
+    """
+    if not arquivo_e_valido(arquivo):
+        return ERRO_DADOS_INVALIDOS
+    arquivo["incluido"] = bool(incluido)
+    return OK
 
 
 def arquivo_atende_restricoes(arquivo, restricoes):

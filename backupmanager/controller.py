@@ -72,14 +72,11 @@ def _marcar_estado_alterado():
 def inicializar_aplicacao():
     """Inicializa o estado em memoria da aplicacao.
 
-    Garante a existencia dos arquivos JSON, carrega perfis e configuracoes e
-    atualiza `_ESTADO`. Retorna `OK` quando todo o estado esta pronto para a
-    interface usar, ou o primeiro codigo de erro encontrado no carregamento.
+    Carrega perfis e configuracoes dos JSONs oficiais. Quando os arquivos nao
+    existem, o armazenamento devolve valores padrao em memoria sem criar JSONs
+    no inicio da execucao. Retorna `OK` quando todo o estado esta pronto para
+    a interface usar, ou o primeiro codigo de erro encontrado no carregamento.
     """
-    codigo_padrao = storage.criar_arquivos_padrao()
-    if codigo_padrao != OK:
-        return codigo_padrao
-
     codigo_perfis, perfis = storage.carregar_perfis()
     codigo_config, config = storage.carregar_configuracoes()
 
@@ -155,54 +152,13 @@ def obter_perfil_por_id(perfil_id):
 def salvar_perfil_editado(perfil):
     """Aplica ao estado em memoria os dados editados de um perfil.
 
-    Recebe um dicionario parcial ou completo contendo obrigatoriamente `id`.
-    Valida tipos basicos de cada campo conhecido, atualiza o perfil existente
-    e marca o estado como alterado. Nao persiste JSON; a gravacao fica para
-    `finalizar_aplicacao`.
+    Recebe um perfil parcial ou completo contendo obrigatoriamente o id e
+    delega a alteracao ao `perfil_manager`, modulo dono do TAD Perfil. Nao
+    persiste JSON; a gravacao fica para `finalizar_aplicacao`.
     """
-    perfil_id = perfil_manager.obter_id_perfil(perfil)
-    if not perfil_id:
-        return ERRO_DADOS_INVALIDOS
-
-    codigo, perfil_atual = perfil_manager.consultar_perfil(_ESTADO["perfis"], perfil_id)
+    codigo = perfil_manager.aplicar_edicao_perfil(_ESTADO["perfis"], perfil)
     if codigo != OK:
         return codigo
-
-    if "nome" in perfil:
-        codigo = perfil_manager.validar_nome_perfil(perfil["nome"])
-        if codigo != OK:
-            return codigo
-
-    if "origens_configuradas" in perfil and not isinstance(perfil["origens_configuradas"], list):
-        return ERRO_DADOS_INVALIDOS
-
-    if "ativo" in perfil and not isinstance(perfil["ativo"], bool):
-        return ERRO_DADOS_INVALIDOS
-
-    codigo = perfil_manager.alterar_nome_perfil(
-        _ESTADO["perfis"],
-        perfil_id,
-        perfil_manager.obter_nome_perfil(perfil) or perfil_manager.obter_nome_perfil(perfil_atual),
-    )
-    if codigo != OK:
-        return codigo
-
-    if "origens_configuradas" in perfil:
-        codigo = perfil_manager.alterar_origens_configuradas(
-            _ESTADO["perfis"],
-            perfil_id,
-            perfil["origens_configuradas"],
-        )
-        if codigo != OK:
-            return codigo
-
-    if "ativo" in perfil:
-        if perfil["ativo"]:
-            codigo = perfil_manager.ativar_perfil(_ESTADO["perfis"], perfil_id)
-        else:
-            codigo = perfil_manager.desativar_perfil(_ESTADO["perfis"], perfil_id)
-        if codigo != OK:
-            return codigo
 
     _marcar_estado_alterado()
     return OK
@@ -299,7 +255,10 @@ def obter_arquivos_do_perfil_configurado(perfil):
                     continue
                 if file_utils.arquivo_atende_restricoes(arquivo, perfil_manager.obter_restricoes_tipo(tipo)):
                     file_utils.adicionar_tipo_incluido_arquivo(arquivo, perfil_manager.obter_nome_tipo(tipo))
-            arquivo["incluido"] = file_utils.arquivo_possui_tipo_incluido(arquivo)
+            file_utils.definir_incluido_arquivo(
+                arquivo,
+                file_utils.arquivo_possui_tipo_incluido(arquivo),
+            )
             arquivos.append(arquivo)
 
     return OK, arquivos

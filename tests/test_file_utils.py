@@ -14,6 +14,7 @@ from tests.assertions import (
 )
 
 from backupmanager.engine import file_utils
+from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS
 
 
 def test_caminho_existe_para_arquivo_e_diretorio():
@@ -115,6 +116,19 @@ def test_obter_metadados_arquivo_invalido():
         assert_is_none(file_utils.obter_metadados_arquivo(None))
         assert_is_none(file_utils.obter_metadados_arquivo(pasta))
         assert_is_none(file_utils.obter_metadados_arquivo(Path(pasta) / "inexistente.txt"))
+
+def test_definir_incluido_arquivo_altera_campo_por_funcao_de_acesso():
+    arquivo = {"nome": "relatorio.pdf"}
+
+    codigo = file_utils.definir_incluido_arquivo(arquivo, True)
+
+    assert_equal(codigo, OK)
+    assert_true(arquivo["incluido"])
+
+def test_definir_incluido_arquivo_rejeita_metadados_invalidos():
+    codigo = file_utils.definir_incluido_arquivo(None, True)
+
+    assert_equal(codigo, ERRO_DADOS_INVALIDOS)
 
 def test_filtrar_por_extensao():
     arquivo = {"extensao": ".py", "nome": "main.py", "tamanho": 10}

@@ -107,7 +107,10 @@ def test_inicializar_aplicacao_carrega_estado_em_memoria(monkeypatch):
     ]
     config = {"versao": 1}
     controller._ESTADO["alterado"] = True
-    monkeypatch.setattr(controller.storage, "criar_arquivos_padrao", lambda: OK)
+    def criar_arquivos_padrao():
+        raise AssertionError("inicializacao nao deve gravar JSON")
+
+    monkeypatch.setattr(controller.storage, "criar_arquivos_padrao", criar_arquivos_padrao)
     monkeypatch.setattr(controller.storage, "carregar_perfis", lambda: (OK, perfis))
     monkeypatch.setattr(controller.storage, "carregar_configuracoes", lambda: (OK, config))
 
