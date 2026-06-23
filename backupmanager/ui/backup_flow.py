@@ -8,6 +8,7 @@ import customtkinter as ctk
 
 from backupmanager.domain import perfil_manager
 from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS
+from backupmanager.ui import ui_state
 from backupmanager.ui.restrictions import (
     criar_restricoes_da_interface,
     limpar_area_tipo_destino,
@@ -226,9 +227,9 @@ def _adicionar_origem_interface(estado_interface):
     caminho = filedialog.askdirectory(title="Escolha a pasta de origem")
     if caminho:
         origem = perfil_manager.criar_origem_configurada(caminho)
-        estado_interface["origens_configuradas"].append(origem)
+        _, indice_nova_origem = ui_state.adicionar_origem_configurada(estado_interface, origem)
         atualizar_lista_origens_configuradas(estado_interface)
-        selecionar_origem_por_indice(estado_interface, len(estado_interface["origens_configuradas"]) - 1)
+        selecionar_origem_por_indice(estado_interface, indice_nova_origem)
     return OK
 
 
@@ -268,15 +269,13 @@ def _adicionar_tipo_arquivo_interface(estado_interface):
 
 def _remover_origem_configurada_interface(estado_interface):
     """Remove origem configurada selecionada."""
-    indice = estado_interface.get("origem_selecionada_indice")
+    indice = ui_state.obter_origem_selecionada_indice(estado_interface)
     if indice is None:
         return ERRO_DADOS_INVALIDOS
 
     salvar_tipo_selecionado_em_memoria(estado_interface)
-    origens = estado_interface["origens_configuradas"]
-    if 0 <= indice < len(origens):
-        origens.pop(indice)
-    estado_interface["origem_selecionada_indice"] = None
+    ui_state.remover_origem_configurada_por_indice(estado_interface, indice)
+    ui_state.definir_origem_selecionada_indice(estado_interface, None)
     estado_interface["tipo_selecionado_indice"] = None
     estado_interface["destino_selecionado_indice"] = None
     atualizar_lista_origens_configuradas(estado_interface)
@@ -369,7 +368,7 @@ def _alternar_origem_ativa_interface(estado_interface):
         return ERRO_DADOS_INVALIDOS
 
     perfil_manager.alterar_origem_ativa(origem, not perfil_manager.origem_esta_ativa(origem))
-    indice = estado_interface.get("origem_selecionada_indice")
+    indice = ui_state.obter_origem_selecionada_indice(estado_interface)
     atualizar_lista_origens_configuradas(estado_interface)
     selecionar_origem_por_indice(estado_interface, indice)
     return OK
@@ -443,7 +442,7 @@ def atualizar_lista_origens_configuradas(estado_interface):
     """
     lista = estado_interface["lista_origens"]
     lista.delete(0, tk.END)
-    for origem in estado_interface["origens_configuradas"]:
+    for origem in ui_state.obter_origens_configuradas(estado_interface):
         marcador = "[x] " if perfil_manager.origem_esta_ativa(origem) else "[ ] "
         lista.insert(tk.END, marcador + perfil_manager.obter_caminho_origem(origem))
     return OK
@@ -539,7 +538,7 @@ def _selecionar_origem_configurada_interface(estado_interface):
     if not selecao:
         return ERRO_DADOS_INVALIDOS
 
-    estado_interface["origem_selecionada_indice"] = selecao[0]
+    ui_state.definir_origem_selecionada_indice(estado_interface, selecao[0])
     estado_interface["tipo_selecionado_indice"] = None
     estado_interface["destino_selecionado_indice"] = None
     _atualizar_lista_tipos_origem(estado_interface)
@@ -598,11 +597,7 @@ def _selecionar_tipo_por_indice(estado_interface, indice):
 
 def _obter_origem_selecionada(estado_interface):
     """Retorna origem selecionada."""
-    indice = estado_interface.get("origem_selecionada_indice")
-    origens = estado_interface.get("origens_configuradas", [])
-    if indice is None or indice < 0 or indice >= len(origens):
-        return None
-    return origens[indice]
+    return ui_state.obter_origem_selecionada(estado_interface)
 
 
 def _obter_tipo_selecionado(estado_interface):

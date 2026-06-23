@@ -9,6 +9,7 @@ import customtkinter as ctk
 from backupmanager import controller
 from backupmanager.domain import backup_result, perfil_manager
 from backupmanager.return_codes import OK, ERRO_DADOS_INVALIDOS, obter_mensagem
+from backupmanager.ui import ui_state
 from backupmanager.ui.backup_flow import (
     atualizar_lista_origens_configuradas,
     salvar_tipo_selecionado_em_memoria,
@@ -123,12 +124,12 @@ def preencher_formulario_com_perfil(estado_interface, perfil):
     estado_interface["ativo_var"].set(perfil_manager.perfil_esta_ativo(perfil))
     estado_interface["operacao_var"].set("copiar")
 
-    estado_interface["origens_configuradas"] = _montar_origens_configuradas_para_interface(perfil)
-    estado_interface["origem_selecionada_indice"] = None
+    ui_state.definir_origens_configuradas(estado_interface, _montar_origens_configuradas_para_interface(perfil))
+    ui_state.definir_origem_selecionada_indice(estado_interface, None)
     estado_interface["tipo_selecionado_indice"] = None
     atualizar_lista_origens_configuradas(estado_interface)
     limpar_area_tipo_destino(estado_interface)
-    if estado_interface["origens_configuradas"]:
+    if ui_state.total_origens_configuradas(estado_interface):
         selecionar_origem_por_indice(estado_interface, 0)
 
     return perfil
@@ -141,8 +142,8 @@ def limpar_formulario(estado_interface):
     estado da interface. Nao altera o controller diretamente.
     """
     _preencher_entry(estado_interface["entrada_nome"], "")
-    estado_interface["origens_configuradas"] = []
-    estado_interface["origem_selecionada_indice"] = None
+    ui_state.definir_origens_configuradas(estado_interface, [])
+    ui_state.definir_origem_selecionada_indice(estado_interface, None)
     estado_interface["tipo_selecionado_indice"] = None
     _preencher_lista(estado_interface["lista_origens"], [])
     _preencher_lista(estado_interface["lista_tipos"], [])
@@ -247,7 +248,7 @@ def _obter_dados_formulario(estado_interface):
 
     if (
         formulario_tipo_possui_valor_invalido(estado_interface)
-        or not estado_interface.get("origens_configuradas")
+        or not ui_state.total_origens_configuradas(estado_interface)
         or _existe_conflito_operacao_interface(estado_interface)
     ):
         return None
@@ -255,7 +256,7 @@ def _obter_dados_formulario(estado_interface):
     return perfil_manager.criar_edicao_perfil(
         perfil_id,
         estado_interface["entrada_nome"].get(),
-        estado_interface["origens_configuradas"],
+        ui_state.obter_origens_configuradas(estado_interface),
         estado_interface["ativo_var"].get(),
     )
 
@@ -310,7 +311,7 @@ def _mostrar_erro_validacao_formulario(estado_interface):
         messagebox.showerror("BackupManager", "Informe um nome para o perfil.")
         return ERRO_DADOS_INVALIDOS
 
-    if not estado_interface.get("origens_configuradas"):
+    if not ui_state.total_origens_configuradas(estado_interface):
         messagebox.showerror("BackupManager", "Adicione pelo menos uma origem.")
         return ERRO_DADOS_INVALIDOS
 
@@ -339,7 +340,7 @@ def _mostrar_erro_validacao_formulario(estado_interface):
 
 def _existe_conflito_operacao_interface(estado_interface):
     """Verifica conflito visual de mover/recortar em multiplos destinos."""
-    for origem in estado_interface.get("origens_configuradas", []):
+    for origem in ui_state.obter_origens_configuradas(estado_interface):
         for tipo in perfil_manager.obter_tipos_origem(origem):
             destinos = perfil_manager.obter_destinos_tipo(tipo)
             if len(destinos) <= 1:
