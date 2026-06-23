@@ -88,7 +88,7 @@ Os códigos de retorno padronizados ficam em `backupmanager/return_codes.py`. El
 
 - Estado da aplicação: perfis/config em memória e flag de alteração. Dono: `controller.py`.
 
-- Estado da interface: widgets, seleções e edições em andamento. Dono: módulos em `ui/`.
+- Estado da interface: widgets, seleções e edições em andamento. Dono operacional: `ui/ui_state.py`, com uso pelos demais módulos em `ui/`.
 
 
 
@@ -98,7 +98,7 @@ Os códigos de retorno padronizados ficam em `backupmanager/return_codes.py`. El
 
 2. Inicialização: a UI chama `controller.inicializar_aplicacao()`, que pede a `infra/storage.py` para carregar JSONs ou devolver valores padrao em memoria quando eles nao existem. A inicializacao nao cria nem grava JSONs.
 
-3. Edição visual: `ui.profiles`, `ui.backup_flow` e `ui.restrictions` manipulam o TAD Estado da interface e criam/alteram Perfil, Origem, Tipo, Destino e Restrições por funções de `perfil_manager`.
+3. Edição visual: `ui.profiles`, `ui.backup_flow` e `ui.restrictions` manipulam o TAD Estado da interface principalmente por `ui.ui_state`; Perfil, Origem, Tipo, Destino e Restrições continuam sendo criados/alterados por funções de `perfil_manager`.
 
 4. Aplicar/backup: `ui.actions.executar_backup_interface()` sincroniza o formulário com `controller.salvar_perfil_editado()` e chama `controller.executar_backup_do_perfil()`.
 
@@ -120,21 +120,39 @@ Os códigos de retorno padronizados ficam em `backupmanager/return_codes.py`. El
 
 - Não há classes, dataclasses, structs, `NamedTuple`, `TypedDict` ou `unittest` em `backupmanager` ou `tests`.
 
+- O TAD Estado da aplicação fica concentrado em `controller.py`, dentro de `_ESTADO`. Por convenção e por uso no projeto, `_ESTADO` é interno ao controller: outros módulos pedem operações ao controller, e somente o controller altera diretamente esse dicionário.
+
+- O controller funciona como fachada da aplicação: a UI chama funções públicas como `criar_novo_perfil`, `salvar_perfil_editado`, `executar_backup_do_perfil`, `obter_perfis` e `obter_perfil_por_id`; o controller delega criação/validação/mutação de perfis ao `perfil_manager`, delega execução ao `backup_engine` e delega persistência ao `storage`.
+
+- O JSON está encapsulado em `infra/storage.py`. A interface e os módulos de domínio não abrem `perfis.json` ou `config.json` diretamente.
+
+- O acesso direto ao estado visual da UI foi reduzido com `ui/ui_state.py`. Operações que antes ficavam espalhadas, como adicionar/remover origem em `estado_interface["origens_configuradas"]`, agora passam por funções como `adicionar_origem_configurada`, `remover_origem_configurada_por_indice`, `obter_origem_selecionada` e `definir_origens_configuradas`.
+
 - A auditoria textual não encontrou acesso direto a `perfil.get`, `origem.get`, `tipo.get`, `destino.get`, `restricoes.get`, `resultado.get` ou `arquivo.get` fora dos módulos donos dos TADs.
 
-- A auditoria textual tambem nao encontrou escrita direta em `perfil[...]` fora de `domain/perfil_manager.py` nem escrita direta em `arquivo[...]` fora de `engine/file_utils.py`.
+- A auditoria textual também não encontrou escrita direta em `perfil[...]` fora de `domain/perfil_manager.py` nem escrita direta em `arquivo[...]` fora de `engine/file_utils.py`.
 
-- Exceção controlada: `estado_interface` e `_ESTADO` são TADs locais administrados pelos próprios módulos da UI/controller.
+- Ressalva importante: algumas funções públicas ainda retornam TADs ou listas reais mutáveis, por exemplo perfis/origens/tipos/destinos. Isso não significa que `_ESTADO` seja acessado diretamente fora do controller, mas exige disciplina dos chamadores para não alterar estruturas retornadas sem passar pelas funções apropriadas. Em uma versão mais rígida, esses acessos poderiam retornar cópias ou ser substituídos por funções mais específicas.
 
+## Mudanças recentes de encapsulamento
 
+- `ui_state.py` passou a ser o ponto central para o TAD Estado da interface relacionado a origens configuradas e seleção de origem.
+
+- A documentação agora distingue dois casos diferentes:
+  - acesso direto proibido, como `controller._ESTADO[...]` fora do controller;
+  - vazamento indireto possível, quando uma função retorna uma lista/dicionário interno mutável.
+
+- O `_ESTADO` foi classificado como bem encapsulado enquanto apenas o controller o manipula diretamente.
+
+- O principal risco restante de encapsulamento não está em classes/structs, pois elas não são usadas, mas sim em getters que retornam estruturas mutáveis e podem permitir alteração externa se usados de forma incorreta.
 
 ## Pasta `backupmanager`
 
 ### Módulo `controller.py`
 
-Resumo: Camada de controle entre interface e módulos internos.
+Resumo: Camada de controle entre interface e módulos internos. O módulo é o dono do TAD Estado da aplicação (`_ESTADO`). Outros módulos não devem acessar `_ESTADO` diretamente; eles pedem operações ao controller, que consulta/delega para os módulos corretos e atualiza o estado interno quando necessário.
 
-TADs/obrigações do módulo: Estado da aplicação (_ESTADO), Perfil, Configurações, Resultado de backup, Metadados de arquivo.
+TADs/obrigações do módulo: Estado da aplicação (`_ESTADO`), Perfil, Configurações, Resultado de backup, Metadados de arquivo.
 
 #### `_marcar_estado_alterado()`
 - Visibilidade: interna.
@@ -178,7 +196,7 @@ TADs/obrigações do módulo: Estado da aplicação (_ESTADO), Perfil, Configura
 
 #### `obter_perfis()`
 - Visibilidade: pública.
-- Objetivo: Retorna todos os perfis mantidos em memória.
+- Objetivo: Retorna todos os perfis mantidos em memória por meio do contrato público do controller. A função não expõe `_ESTADO` diretamente, mas retorna os perfis obtidos via `perfil_manager.listar_perfis`; por isso os chamadores devem tratar o retorno como dado de consulta/edição controlada, não como local para mutação arbitrária.
 - Parâmetros:
     - nenhum parâmetro.
 - Possíveis retornos:
@@ -187,7 +205,7 @@ TADs/obrigações do módulo: Estado da aplicação (_ESTADO), Perfil, Configura
 
 #### `obter_perfil_por_id(perfil_id)`
 - Visibilidade: pública.
-- Objetivo: Consulta um perfil em memória pelo identificador.
+- Objetivo: Consulta um perfil em memória pelo identificador. A busca ocorre dentro do controller sobre `_ESTADO["perfis"]`; o acesso externo continua sendo feito por esta função pública.
 - Parâmetros:
     - `perfil_id`: identificador único de um perfil.
 - Possíveis retornos:
@@ -2711,6 +2729,104 @@ TADs/obrigações do módulo: Estado da interface, Restrições, Tipo de arquivo
 - Possíveis retornos:
     - `codigo`: código de retorno propagado de chamada interna.
 - TADs envolvidos: Estado da interface, Restrições, Tipo de arquivo, Configurações.
+
+### Módulo `ui_state.py`
+
+Resumo: Funções de acesso para o estado visual de origens configuradas.
+
+TADs/obrigações do módulo: Estado da interface, Origem configurada.
+
+#### `obter_origens_configuradas(estado_interface)`
+- Visibilidade: pública.
+- Objetivo: Retorna a lista de origens configuradas mantida no estado visual da interface. Centraliza a leitura de `origens_configuradas`, evitando que `backup_flow.py` e `actions.py` precisem acessar diretamente a chave interna do dicionário.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI com widgets, seleções e dados editados em memória.
+- Possíveis retornos:
+    - lista de origens configuradas.
+    - `[]`: quando a entrada não possui lista válida.
+- TADs envolvidos: Estado da interface, Origem configurada.
+
+#### `definir_origens_configuradas(estado_interface, origens_configuradas)`
+- Visibilidade: pública.
+- Objetivo: Substitui a lista completa de origens configuradas no estado da interface, normalmente ao carregar um perfil ou limpar o formulário.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+    - `origens_configuradas`: lista completa de TADs Origem.
+- Possíveis retornos:
+    - `OK`: sucesso da operação.
+    - `ERRO_DADOS_INVALIDOS`: quando a entrada não é lista.
+- TADs envolvidos: Estado da interface, Origem configurada.
+
+#### `adicionar_origem_configurada(estado_interface, origem)`
+- Visibilidade: pública.
+- Objetivo: Adiciona uma origem já construída ao estado da interface. Substitui o antigo acesso direto com `estado_interface["origens_configuradas"].append(origem)`.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+    - `origem`: TAD Origem Configurada.
+- Possíveis retornos:
+    - `(OK, indice)`: sucesso e posição da origem adicionada.
+- TADs envolvidos: Estado da interface, Origem configurada.
+
+#### `remover_origem_configurada_por_indice(estado_interface, indice)`
+- Visibilidade: pública.
+- Objetivo: Remove a origem configurada na posição informada. Substitui o antigo acesso direto com `pop` sobre a lista interna.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+    - `indice`: posição selecionada na interface.
+- Possíveis retornos:
+    - `OK`: sucesso da operação.
+    - `ERRO_DADOS_INVALIDOS`: índice inválido ou fora do intervalo.
+- TADs envolvidos: Estado da interface, Origem configurada.
+
+#### `obter_origem_configurada_por_indice(estado_interface, indice)`
+- Visibilidade: pública.
+- Objetivo: Retorna uma origem configurada por posição, sem que o chamador precise acessar diretamente a lista interna.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+    - `indice`: posição da origem.
+- Possíveis retornos:
+    - TAD Origem Configurada.
+    - `None`: índice inválido.
+- TADs envolvidos: Estado da interface, Origem configurada.
+
+#### `definir_origem_selecionada_indice(estado_interface, indice)`
+- Visibilidade: pública.
+- Objetivo: Define qual origem está selecionada na interface.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+    - `indice`: posição selecionada.
+- Possíveis retornos:
+    - `OK`: sucesso da operação.
+- TADs envolvidos: Estado da interface.
+
+#### `obter_origem_selecionada_indice(estado_interface)`
+- Visibilidade: pública.
+- Objetivo: Retorna o índice da origem selecionada, ou `None` quando não há seleção.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+- Possíveis retornos:
+    - índice selecionado.
+    - `None`: nenhuma origem selecionada.
+- TADs envolvidos: Estado da interface.
+
+#### `obter_origem_selecionada(estado_interface)`
+- Visibilidade: pública.
+- Objetivo: Retorna a origem atualmente selecionada combinando índice selecionado e acesso por índice em um único ponto.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+- Possíveis retornos:
+    - TAD Origem Configurada.
+    - `None`: nenhuma origem válida selecionada.
+- TADs envolvidos: Estado da interface, Origem configurada.
+
+#### `total_origens_configuradas(estado_interface)`
+- Visibilidade: pública.
+- Objetivo: Retorna a quantidade de origens configuradas em memória na interface.
+- Parâmetros:
+    - `estado_interface`: TAD local da UI.
+- Possíveis retornos:
+    - inteiro com a quantidade de origens.
+- TADs envolvidos: Estado da interface.
 
 ### Módulo `theme.py`
 
