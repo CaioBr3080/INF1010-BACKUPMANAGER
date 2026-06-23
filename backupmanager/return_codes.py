@@ -39,15 +39,15 @@ ERRO_PERFIL_INATIVO = 15
 ERRO_DADOS_INVALIDOS = 16
 
 _MENSAGENS = {
-    OK: "Operacao realizada com sucesso.",
+    OK: "Operação realizada com sucesso.",
     ERRO_PERFIL_NAO_ENCONTRADO: "Perfil nao encontrado.",
     ERRO_NOME_INVALIDO: "Nome de perfil invalido.",
     ERRO_ORIGEM_INVALIDA: "Origem invalida.",
     ERRO_DESTINO_INVALIDO: "Destino invalido.",
-    ERRO_SEM_PERMISSAO: "Sem permissao para acessar o caminho.",
+    ERRO_SEM_PERMISSAO: "Sem permissão para acessar o caminho.",
     ERRO_ARQUIVO_NAO_ENCONTRADO: "Arquivo nao encontrado.",
-    ERRO_RESTRICAO_INVALIDA: "Restricao invalida.",
-    ERRO_OPERACAO_INVALIDA: "Operacao invalida.",
+    ERRO_RESTRICAO_INVALIDA: "Restrição invalida.",
+    ERRO_OPERACAO_INVALIDA: "Operação invalida.",
     ERRO_FALHA_AO_COPIAR: "Falha ao copiar arquivo.",
     ERRO_FALHA_AO_MOVER: "Falha ao mover arquivo.",
     ERRO_JSON_CORROMPIDO: "Arquivo JSON corrompido.",

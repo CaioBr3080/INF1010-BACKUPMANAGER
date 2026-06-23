@@ -1,1 +1,56 @@
-[]
+[
+    {
+        "id": "perfil_e606a100",
+        "nome": "Caio",
+        "origens_configuradas": [
+            {
+                "id": "origem_239e5013",
+                "caminho": "C:/Desenvolvimento em Py/test",
+                "ativo": true,
+                "tipos_arquivo": [
+                    {
+                        "id": "tipo_a42f789c",
+                        "nome": "txt",
+                        "ativo": true,
+                        "restricoes": {
+                            "extensoes_permitidas": [
+                                ".txt"
+                            ],
+                            "regras_nome": [
+                                {
+                                    "valor": "envio",
+                                    "modo": "exato"
+                                }
+                            ],
+                            "tamanho_min": 0,
+                            "tamanho_max": null,
+                            "data_modificacao_min": null,
+                            "data_modificacao_max": null
+                        },
+                        "destinos": [
+                            {
+                                "caminho": "C:/Desenvolvimento em Py/test_d",
+                                "operacao": "copiar"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "tipo_9ef3a203",
+                        "nome": "pdf",
+                        "ativo": true,
+                        "restricoes": {
+                            "extensoes_permitidas": [],
+                            "regras_nome": [],
+                            "tamanho_min": 0,
+                            "tamanho_max": null,
+                            "data_modificacao_min": null,
+                            "data_modificacao_max": null
+                        },
+                        "destinos": []
+                    }
+                ]
+            }
+        ],
+        "ativo": true
+    }
+]
